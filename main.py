@@ -7,8 +7,12 @@ import atexit
 import sounddevice as sd
 import soundfile as sf
 from analyze import analyze_wav
+import subprocess
 
 import threading
+
+COMMANDS = {}
+COMMANDS['E'] = 'ls'
 
 # <--- Threading for reading input during recording ---> 
 class KeyboardThread(threading.Thread):
@@ -20,6 +24,8 @@ class KeyboardThread(threading.Thread):
 
     def run(self):
         while True:
+            if (self.interrupt):
+                break
             key = input()
             if self.input_cbk:
                 self.input_cbk(key) # waits to get input + Return
@@ -33,6 +39,13 @@ class KeyboardThread(threading.Thread):
 def get_input_callback(key):
     print(key)
     
+
+def parse_note(note: str):
+    if note in COMMANDS:
+        print("running sub")
+        subprocess.run(COMMANDS[note], shell=True)
+
+
 
 def int_or_str(text):
     """Helper function for argument parsing."""
@@ -77,7 +90,20 @@ def callback(indata, frames, time, status):
     q.put(indata.copy())
 
 
-def record_input() -> str:
+temp_files = []
+
+def cleanup():
+    """Remove all temporary recording files on exit."""
+    for filename in temp_files:
+        try:
+            if os.path.exists(filename):
+                os.remove(filename)
+        except OSError:
+            pass
+
+atexit.register(cleanup)
+
+def record_input() -> str | None:
     try:
         if args.samplerate is None:
             device_info = sd.query_devices(args.device, 'input')
@@ -86,7 +112,8 @@ def record_input() -> str:
         if args.filename is None:
             fd, args.filename = tempfile.mkstemp(prefix='input_',
                                             suffix='.wav', dir='')
-            os.close(fd) # will be reopened by sd 
+            os.close(fd) # will be reopened by sd
+            temp_files.append(args.filename)
 
         # Make sure the file is opened before recording anything:
         with sf.SoundFile(args.filename, mode='w+', samplerate=args.samplerate,
@@ -103,23 +130,23 @@ def record_input() -> str:
                     if interrupt:
                         break
                     file.write(q.get())
+                args.filename = None  # Reset for next recording
                 return filename
     except KeyboardInterrupt:
         print('\nCancelling recording... ')
+        return None
     except Exception as e:
-        parser.exit(1, type(e).__name__ + ': ' + str(e))
+        print(f"Error: {type(e).__name__}: {str(e)}", file=sys.stderr)
+        return None
 
-filename = ""
-while 1:
-    cmd = input("Press 'r' to start recording.")
+while True:
+    print("--------")
+    cmd = input("Press 'r' to start recording, 'q' to quit: ")
     if cmd == 'r':
         filename = record_input()
-        note, octave, main_frequency = analyze_wav(filename)
-        print(note, octave)
-    
-def cleanup():
-    if len(filename) > 0:
-        os.remove(filename)
-    parser.exit(0)
-    
-atexit.register(cleanup)
+        if filename:
+            note, octave, main_frequency = analyze_wav(filename)
+            print(f"{note}{octave} ({main_frequency:.2f} Hz)")
+            parse_note(note)
+    elif cmd == 'q':
+        break
