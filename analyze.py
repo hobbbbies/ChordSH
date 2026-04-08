@@ -19,10 +19,28 @@ def freq_to_note(freq: float) -> tuple[str, int]:
 
     return note, octave
 
+def find_top_notes(x_mag, freqs, nums: int) -> list:
+    # Make a copy of freqs 
+    # Pop largest index
+    # Repeat until we have nums popped indices 
+    popped_indices = []
+    while len(popped_indices) < nums:
+        greatest = int(np.argmax(x_mag))
+        popped_indices.append(greatest)
+        np.delete(x_mag, greatest)
+    
+    top_notes = []
+    for i in range(nums):
+        top_notes.append(freqs[popped_indices[i]])
+ 
+    return top_notes
 
 def analyze_wav(filename: str) -> tuple[str, int, float]:
     # scipy.io.wavfile needs a file-like object
     fs, data = wavfile.read(filename)
+
+    if data.size == 0:
+        raise ValueError("Recorded audio is empty")
 
     # If stereo, take one channel
     if len(data.shape) > 1:
@@ -41,9 +59,26 @@ def analyze_wav(filename: str) -> tuple[str, int, float]:
 
     mask = x_mag > ENERGY_THRESHOLD
 
-    main_idx = int(np.argmax(x_mag))
-    main_freq = float(freqs[main_idx])
+    # main_idx = int(np.argmax(x_mag))
+    # main_freq = float(freqs[main_idx])
 
-    note, octave = freq_to_note(main_freq)
+    top_note = find_top_notes(x_mag, freqs, 1)
 
-    return note, octave, main_freq
+    note, octave = freq_to_note(top_note[0])
+
+    return note, octave, top_note[0]
+
+
+# # Break down into sliding windows
+# def analyze_whole_wav(filename: str) -> list[tuple[str, int, float]]:
+#     fs, data = wavfile.read(filename)
+    
+#     # If stereo, take one channel
+#     if len(data.shape) > 1:
+#         audio = data[:, 0]
+#     else:
+#         audio = data
+
+#     N = len(audio)
+#     time = 
+#     return

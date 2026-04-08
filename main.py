@@ -6,46 +6,77 @@ import tempfile
 import atexit
 import sounddevice as sd
 import soundfile as sf
+import curses
+from ui.game_ui import GameUI
 from analyze import analyze_wav
 import subprocess
+import time
+import random
 
 import threading
 
 COMMANDS = {}
 COMMANDS['E'] = 'ls'
+C_MAJOR_SCALE = ["C", "D", "E", "F", "G", "A", "B"]
+
 
 # <--- Threading for reading input during recording ---> 
 class KeyboardThread(threading.Thread):
-    def __init__(self, input_cbk = None, name='keyboard-input-thread'):
-        self.input_cbk = input_cbk
-        self.interrupt = False
+    def __init__(self, stdscr, stop_key: str = 'r', name='keyboard-input-thread'):
+        self.stdscr = stdscr
+        self.stop_key = stop_key
+        self.interrupt = threading.Event()
         super(KeyboardThread, self).__init__(name=name, daemon=True)
         self.start()
 
     def run(self):
-        while True:
-            if (self.interrupt):
-                break
-            key = input()
-            if self.input_cbk:
-                self.input_cbk(key) # waits to get input + Return
-            if key == 'r':
-                self.interrupt = True
+        while not self.interrupt.is_set():
+            try:
+                key = self.stdscr.getch()
+            except curses.error:
+                continue
+
+            if key == -1:
+                time.sleep(0.02)
+                continue
+
+            try:
+                if chr(key).lower() == self.stop_key:
+                    self.interrupt.set()
+            except ValueError:
+                continue
                 
 
     def getInterrupt(self):
-        return self.interrupt
+        return self.interrupt.is_set()
 
-def get_input_callback(key):
-    print(key)
+    def stop(self):
+        self.interrupt.set()
     
 
-def parse_note(note: str):
+def parse_sh_note(note: str) -> str:
     if note in COMMANDS:
-        print("running sub")
-        subprocess.run(COMMANDS[note], shell=True)
+        command = COMMANDS[note]
+        result = subprocess.run(command, shell=True, capture_output=True, text=True)
+        output = (result.stdout or '').strip()
+        error = (result.stderr or '').strip()
 
+        if result.returncode == 0:
+            return output if output else f"'{command}' executed successfully."
+        return error if error else f"'{command}' failed with code {result.returncode}."
 
+    return f"No command mapped for note {note}."
+
+def parse_note(played: str, expected: str) -> bool:
+    if played != expected:
+        return False
+        return f"Wrong! You played the {played} note instead of the {expected} note!"
+    else:
+        return True
+        return "Success!"
+    
+def choose_note() -> str:
+    return random.choice(C_MAJOR_SCALE)
 
 def int_or_str(text):
     """Helper function for argument parsing."""
@@ -103,8 +134,19 @@ def cleanup():
 
 atexit.register(cleanup)
 
-def record_input() -> str | None:
+def _drain_audio_queue() -> None:
+    while not q.empty():
+        try:
+            q.get_nowait()
+        except queue.Empty:
+            break
+
+
+def record_input(stdscr, game_ui: GameUI) -> str | None:
+    kthread = None
     try:
+        _drain_audio_queue()
+
         if args.samplerate is None:
             device_info = sd.query_devices(args.device, 'input')
             # soundfile expects an int, sounddevice provides a float:
@@ -121,32 +163,71 @@ def record_input() -> str | None:
             with sd.InputStream(samplerate=args.samplerate, device=args.device,
                                 channels=args.channels, callback=callback):
                 filename = file.name
-                print('#' * 80)
-                print("press 'r' to stop the recording")
-                print('#' * 80)
-                kthread = KeyboardThread(input_cbk=get_input_callback)
+                stdscr.nodelay(True)
+                game_ui.message("Recording... press 'r' again to stop")
+                kthread = KeyboardThread(stdscr)
                 while True:
                     interrupt = kthread.getInterrupt()
                     if interrupt:
                         break
-                    file.write(q.get())
+                    try:
+                        file.write(q.get(timeout=0.1))
+                    except queue.Empty:
+                        continue
+
+                kthread.stop()
+                kthread.join(timeout=0.2)
+                stdscr.nodelay(False)
                 args.filename = None  # Reset for next recording
                 return filename
     except KeyboardInterrupt:
-        print('\nCancelling recording... ')
+        game_ui.message('Cancelling recording...')
         return None
     except Exception as e:
-        print(f"Error: {type(e).__name__}: {str(e)}", file=sys.stderr)
+        game_ui.message(f"Error: {type(e).__name__}: {str(e)}")
         return None
+    finally:
+        if kthread is not None and kthread.is_alive():
+            kthread.stop()
+            kthread.join(timeout=0.2)
+        stdscr.nodelay(False)
 
-while True:
-    print("--------")
-    cmd = input("Press 'r' to start recording, 'q' to quit: ")
-    if cmd == 'r':
-        filename = record_input()
-        if filename:
-            note, octave, main_frequency = analyze_wav(filename)
-            print(f"{note}{octave} ({main_frequency:.2f} Hz)")
-            parse_note(note)
-    elif cmd == 'q':
-        break
+# def init_game_ui(stdscr) -> "GameUI":
+#     game_ui = GameUI(stdscr)
+#     return
+
+def game_loop(game_ui, stdscr):
+    current_note = choose_note()
+    while True:
+        cmd = stdscr.getkey().lower()
+        if cmd == 'r':
+            filename = record_input(stdscr, game_ui)
+            if filename:
+                try:
+                    note, octave, main_frequency = analyze_wav(filename)
+                except ValueError as error:
+                    game_ui.message(str(error))
+                else:
+                    note_text = f"Detected: {note}{octave} ({main_frequency:.2f} Hz)"
+                    game_ui.message(note_text)
+                    if (not parse_note(note, current_note)):
+                        msg =  f"Wrong! You played the {note} note instead of the {current_note} note!"
+                        game_ui.debug(msg)
+                    else:
+                        game_ui.debug("Success!")    
+                        current_note = choose_note()
+                # game_ui.debug(parse_sh_note(note))
+            game_ui.render_start()
+        elif cmd == 'q':
+            break
+
+
+def main(stdscr):
+    game_ui = GameUI(stdscr)
+    game_ui.init_screen()
+    game_ui.render_start()
+    game_loop(game_ui, stdscr)
+
+if __name__ == "__main__":
+    curses.wrapper(main)
+
