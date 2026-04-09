@@ -1,0 +1,61 @@
+"""Tests for core/events.py"""
+import pytest
+from core.events import GameEvent, EventType
+
+
+class TestEventType:
+    def test_event_types_exist(self):
+        assert EventType.GAME_STARTED
+        assert EventType.GAME_ENDED
+        assert EventType.NEW_TARGET_NOTE
+        assert EventType.NOTE_DETECTED
+        assert EventType.NOTE_CORRECT
+        assert EventType.NOTE_INCORRECT
+        assert EventType.STREAMING_STARTED
+        assert EventType.STREAMING_STOPPED
+        assert EventType.MESSAGE
+        assert EventType.DEBUG
+        assert EventType.ERROR
+
+
+class TestGameEvent:
+    def test_create_basic_event(self):
+        event = GameEvent(EventType.GAME_STARTED)
+        
+        assert event.type == EventType.GAME_STARTED
+        assert event.data is None
+
+    def test_create_event_with_data(self):
+        event = GameEvent(EventType.NOTE_CORRECT, {"played": "C", "expected": "C"})
+        
+        assert event.type == EventType.NOTE_CORRECT
+        assert event.data == {"played": "C", "expected": "C"}
+
+    def test_new_target_factory(self):
+        event = GameEvent.new_target("G")
+        
+        assert event.type == EventType.NEW_TARGET_NOTE
+        assert event.data == {"note": "G"}
+
+    def test_note_detected_factory(self):
+        event = GameEvent.note_detected("A", 4, 440.0)
+        
+        assert event.type == EventType.NOTE_DETECTED
+        assert event.data == {"note": "A", "octave": 4, "freq": 440.0}
+
+    def test_message_factory(self):
+        event = GameEvent.message("Hello", row=2)
+        
+        assert event.type == EventType.MESSAGE
+        assert event.data == {"text": "Hello", "row": 2}
+
+    def test_message_factory_default_row(self):
+        event = GameEvent.message("Test")
+        
+        assert event.data["row"] == 0
+
+    def test_error_factory(self):
+        event = GameEvent.error("Something went wrong")
+        
+        assert event.type == EventType.ERROR
+        assert event.data == {"text": "Something went wrong"}

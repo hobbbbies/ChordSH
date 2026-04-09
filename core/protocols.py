@@ -1,0 +1,73 @@
+"""
+Abstract protocols that UI and Audio adapters must implement.
+These define the contract between the game engine and external systems.
+"""
+from typing import Callable, Protocol
+from .events import GameEvent
+
+
+class UIAdapter(Protocol):
+    """
+    Protocol for UI implementations (curses, web, etc.).
+    
+    The UI adapter receives events from the game engine and renders them.
+    It also provides input back to the engine.
+    """
+    
+    def on_event(self, event: GameEvent) -> None:
+        """
+        Handle a game event (render it, update state, etc.).
+        This is the main entry point for all engine -> UI communication.
+        """
+        ...
+    
+    def get_command(self) -> str | None:
+        """
+        Non-blocking check for user input.
+        Returns command string ('r', 'q', etc.) or None if no input.
+        """
+        ...
+    
+    def wait_for_command(self) -> str:
+        """
+        Blocking wait for user input.
+        Returns command string when user provides input.
+        """
+        ...
+    
+    def init(self) -> None:
+        """Initialize the UI (setup screen, connections, etc.)."""
+        ...
+    
+    def cleanup(self) -> None:
+        """Clean up resources (restore terminal, close connections, etc.)."""
+        ...
+
+
+class AudioAdapter(Protocol):
+    """
+    Protocol for audio capture implementations.
+    
+    Abstracts audio recording so the engine doesn't care if audio
+    comes from local microphone, WebRTC stream, or uploaded file.
+    """
+    
+    def start_stream(self, on_result: Callable[[str, int, float], None]) -> None:
+        """
+        Start streaming audio analysis.
+        
+        Args:
+            on_result: Callback invoked with (note, octave, freq) on each detection
+        """
+        ...
+    
+    def stop_stream(self) -> tuple[str, int, float] | None:
+        """
+        Stop streaming and return the last detected result.
+        Returns (note, octave, freq) or None if nothing detected.
+        """
+        ...
+    
+    def is_streaming(self) -> bool:
+        """Check if currently streaming."""
+        ...
