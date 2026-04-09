@@ -140,23 +140,23 @@ class GameEngine:
     def _start_recording(self) -> None:
         """Begin audio streaming."""
         self._emit(GameEvent(EventType.STREAMING_STARTED))
-        self._emit(GameEvent.message(f"Target: {self._current_note} - Streaming... press 'r' to stop", row=1))
+        self._emit(GameEvent.message(f"Target: {self._current_note}", row=1))
         self._audio.start_stream(self._on_note_detected)
     
     def _stop_recording(self) -> None:
         """Stop streaming and evaluate result."""
-        result = self._audio.stop_stream()
+        self._audio.stop_stream()
         self._emit(GameEvent(EventType.STREAMING_STOPPED))
         
-        if result:
-            note, octave, freq = result
-            self._emit(GameEvent.note_detected(note, octave, freq))
-            self._check_note(note)
+        # if result:
+        #     note, octave, freq = result
+        #     self._emit(GameEvent.note_detected(note, octave, freq))
+        #     self._check_note(note)
     
     def _on_note_detected(self, note: str, octave: int, freq: float) -> None:
         """Callback for real-time note detection during streaming."""
-        
         self._emit(GameEvent.note_detected(note, octave, freq))
+        self._check_note(note)
     
     def _check_note(self, played: str) -> None:
         """Check if played note matches target."""
