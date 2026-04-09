@@ -27,7 +27,7 @@ def find_top_notes(x_mag, freqs, nums: int) -> list:
     while len(popped_indices) < nums:
         greatest = int(np.argmax(x_mag))
         popped_indices.append(greatest)
-        np.delete(x_mag, greatest)
+        x_mag = np.delete(x_mag, greatest)
     
     top_notes = []
     for i in range(nums):
@@ -67,6 +67,24 @@ def analyze_wav(filename: str) -> tuple[str, int, float]:
     note, octave = freq_to_note(top_note[0])
 
     return note, octave, top_note[0]
+
+def analyze_buffer(audio: np.ndarray, fs: int) -> tuple[str, int, float]:
+    """Analyze a raw audio buffer instead of a WAV file."""
+    if audio.size == 0:
+        raise ValueError("Audio buffer is empty")
+
+    # If stereo, take one channel
+    if len(audio.shape) > 1:
+        audio = audio[:, 0]
+
+    N = len(audio)
+    X = rfft(audio)
+    freqs = rfftfreq(N, 1 / fs)
+    x_mag = np.abs(X) / N
+
+    top_note = find_top_notes(x_mag, freqs, 1)
+    note, octave = freq_to_note(top_note[0])
+    return note, octave, float(top_note[0])
 
 
 # # Break down into sliding windows

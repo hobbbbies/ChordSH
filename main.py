@@ -8,16 +8,18 @@ import sounddevice as sd
 import soundfile as sf
 import curses
 from ui.game_ui import GameUI
-from analyze import analyze_wav
+from analyze import analyze_wav, analyze_buffer
 import subprocess
 import time
 import random
-
+import numpy as np
+from collections import deque
 import threading
 
 COMMANDS = {}
 COMMANDS['E'] = 'ls'
 C_MAJOR_SCALE = ["C", "D", "E", "F", "G", "A", "B"]
+WINDOW_SECONDS = 2.0
 
 
 # <--- Threading for reading input during recording ---> 
@@ -164,7 +166,7 @@ def record_input(stdscr, game_ui: GameUI) -> str | None:
                                 channels=args.channels, callback=callback):
                 filename = file.name
                 stdscr.nodelay(True)
-                game_ui.message("Recording... press 'r' again to stop")
+                game_ui.message("Recording... press 'r' again to stop", 0)
                 kthread = KeyboardThread(stdscr)
                 while True:
                     interrupt = kthread.getInterrupt()
@@ -181,10 +183,69 @@ def record_input(stdscr, game_ui: GameUI) -> str | None:
                 args.filename = None  # Reset for next recording
                 return filename
     except KeyboardInterrupt:
-        game_ui.message('Cancelling recording...')
+        game_ui.message('Cancelling recording...', 0)
         return None
     except Exception as e:
-        game_ui.message(f"Error: {type(e).__name__}: {str(e)}")
+        game_ui.message(f"Error: {type(e).__name__}: {str(e)}", 3)
+        return None
+    finally:
+        if kthread is not None and kthread.is_alive():
+            kthread.stop()
+            kthread.join(timeout=0.2)
+        stdscr.nodelay(False)
+
+def record_stream(stdscr, game_ui: GameUI):
+    """
+    Stream audio continuously, analyzing a rolling window in real-time.
+    Returns the last detected (note, octave, freq), or None on cancel.
+    """
+    kthread = None
+    last_result = None
+    try:
+    
+        if args.samplerate is None:
+            device_info = sd.query_devices(args.device, 'input')
+            args.samplerate = int(device_info['default_samplerate'])
+
+        window_samples = int(args.samplerate * WINDOW_SECONDS)
+        # Rolling buffer — old samples fall off the left automatically
+        rolling = deque(maxlen=window_samples)
+        game_ui.message("Streaming... press 'r' to stop", 0)
+        stdscr.nodelay(True)
+        kthread = KeyboardThread(stdscr)
+
+        with sd.InputStream(samplerate=args.samplerate, device=args.device,
+                            channels=args.channels, callback=callback):
+            while not kthread.getInterrupt():
+                try:
+                    chunk = q.get(timeout=0.1)   # shape: (frames, channels)
+                except queue.Empty:
+                    continue
+
+                # Flatten to mono and append to rolling window
+                mono = chunk[:, 0] if chunk.ndim > 1 else chunk.flatten()
+                rolling.extend(mono)
+
+                # Only analyze once the buffer has a full window of audio
+                if len(rolling) < window_samples:
+                    continue
+
+                audio = np.array(rolling, dtype=np.float32)
+                try:
+                    note, octave, freq = analyze_buffer(audio, args.samplerate)
+                    last_result = (note, octave, freq)
+                    game_ui.message(f"Live: {note}{octave}  {freq:.1f} Hz", 2)
+                except (ValueError, ZeroDivisionError):
+                    pass  # not enough signal yet
+
+        kthread.stop()
+        kthread.join(timeout=0.2)
+        return last_result
+    except KeyboardInterrupt:
+        game_ui.message('Cancelling...', 0)
+        return None
+    except Exception as e:
+        game_ui.message(f"Error: {type(e).__name__}: {str(e)}", 3)
         return None
     finally:
         if kthread is not None and kthread.is_alive():
@@ -201,22 +262,18 @@ def game_loop(game_ui, stdscr):
     while True:
         cmd = stdscr.getkey().lower()
         if cmd == 'r':
-            filename = record_input(stdscr, game_ui)
-            if filename:
-                try:
-                    note, octave, main_frequency = analyze_wav(filename)
-                except ValueError as error:
-                    game_ui.message(str(error))
+            game_ui.message(f"Target note: {current_note}", 1)
+            result = record_stream(stdscr, game_ui)
+            if result:
+                note, octave, freq = result
+                note_text = f"Detected: {note}{octave} ({freq:.2f} Hz)"
+                game_ui.message(note_text, 2)
+                if not parse_note(note, current_note):
+                    game_ui.debug(f"Wrong! You played {note} instead of {current_note}!")
                 else:
-                    note_text = f"Detected: {note}{octave} ({main_frequency:.2f} Hz)"
-                    game_ui.message(note_text)
-                    if (not parse_note(note, current_note)):
-                        msg =  f"Wrong! You played the {note} note instead of the {current_note} note!"
-                        game_ui.debug(msg)
-                    else:
-                        game_ui.debug("Success!")    
-                        current_note = choose_note()
-                # game_ui.debug(parse_sh_note(note))
+                    game_ui.debug("Success!")
+                    current_note = choose_note()
+                    game_ui.message(f"Target note: {current_note}", 1)
             game_ui.render_start()
         elif cmd == 'q':
             break

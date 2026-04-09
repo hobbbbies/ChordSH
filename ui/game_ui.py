@@ -46,23 +46,16 @@ class GameUI:
 
     # ---------- Messaging ----------
 
-    def message(self, msg: str) -> None:
+    def message(self, msg: str, row: int) -> None:
         """Display a transient message at the top of the screen."""
-        self._stdscr.move(0,0)
+        self._stdscr.move(row,0)
         self._stdscr.clrtoeol()
-        self._stdscr.addstr(0, 0, msg)
-        self._stdscr.refresh()
-
-    def room_status(self, status: str) -> None:
-        """Display room number and name at top of screen"""
-        self._stdscr.move(1,0)
-        self._stdscr.clrtoeol()
-        self._stdscr.addstr(1,0, status)
+        self._stdscr.addstr(row, 0, msg)
         self._stdscr.refresh()
 
     def debug(self, msg: str) -> None:
         _, max_x = self._stdscr.getmaxyx()
-        debug_row = 2
+        debug_row = 3
         self._stdscr.move(debug_row, 0)
         self._stdscr.clrtoeol()
         self._stdscr.addstr(debug_row, 0, f"DEBUG: {msg}"[:max_x - 1])
@@ -90,6 +83,7 @@ class GameUI:
                 self._stdscr.addstr(row, 0, line[:max_x - 1])
 
     def render_start(self):
+        self._clear_screen()
         max_y, max_x = self._stdscr.getmaxyx()
         self._stdscr.move(max_y // 2, 0)
         self._stdscr.clrtoeol()
