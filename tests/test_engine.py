@@ -228,10 +228,9 @@ class TestGameEngineNoteChecking:
         engine.start()
         
         target = engine.current_note
-        audio.set_result(target, 4, 440.0)
         
         engine.handle_command('r')  # Start streaming
-        engine.handle_command('r')  # Stop streaming
+        audio.simulate_detection(target, 4, 440.0)  # Simulate callback during streaming
         
         assert engine.score == 1
 
@@ -242,10 +241,9 @@ class TestGameEngineNoteChecking:
         engine.start()
         
         target = engine.current_note
-        audio.set_result(target, 4, 440.0)
         
-        engine.handle_command('r')
-        engine.handle_command('r')
+        engine.handle_command('r')  # Start streaming
+        audio.simulate_detection(target, 4, 440.0)  # Simulate callback
         
         correct_events = ui.get_events_of_type(EventType.NOTE_CORRECT)
         assert len(correct_events) == 1
@@ -258,10 +256,9 @@ class TestGameEngineNoteChecking:
         engine.start()
         
         first_target = engine.current_note
-        audio.set_result(first_target, 4, 440.0)
         
-        engine.handle_command('r')
-        engine.handle_command('r')
+        engine.handle_command('r')  # Start streaming
+        audio.simulate_detection(first_target, 4, 440.0)  # Simulate correct note
         
         # New target should be chosen (might be same by chance, but event should fire)
         assert engine.current_note in C_MAJOR_SCALE
@@ -273,10 +270,9 @@ class TestGameEngineNoteChecking:
         
         # Pick a note that's definitely not the target
         wrong_note = "X"  # Not in scale
-        audio.set_result(wrong_note, 4, 440.0)
         
-        engine.handle_command('r')
-        engine.handle_command('r')
+        engine.handle_command('r')  # Start streaming
+        audio.simulate_detection(wrong_note, 4, 440.0)  # Simulate wrong note
         
         assert engine.score == 0
 
@@ -288,10 +284,9 @@ class TestGameEngineNoteChecking:
         
         target = engine.current_note
         wrong_note = "X"
-        audio.set_result(wrong_note, 4, 440.0)
         
-        engine.handle_command('r')
-        engine.handle_command('r')
+        engine.handle_command('r')  # Start streaming
+        audio.simulate_detection(wrong_note, 4, 440.0)  # Simulate wrong note
         
         incorrect_events = ui.get_events_of_type(EventType.NOTE_INCORRECT)
         assert len(incorrect_events) == 1
