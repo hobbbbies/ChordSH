@@ -47,6 +47,7 @@ class GameEngine:
         self._score = 0
         self._round_resolved = False
         self._pending_next_round = False
+        self._in_round = False
         
         # Optional event listeners for custom integrations
         self._event_listeners: list[Callable[[GameEvent], None]] = []
@@ -79,8 +80,9 @@ class GameEngine:
                 if self._pending_next_round:
                     self._pending_next_round = False
                     self._stop_recording()
-                    time.sleep(1)
-                    self._start_recording()
+                    self._interruptible_sleep(1.0)
+                    if self._running and self._in_round:  # Only restart if not interrupted or ended
+                        self._start_recording()
                 
                 if self._audio.is_streaming():
                     # Non-blocking poll during streaming
@@ -107,11 +109,14 @@ class GameEngine:
         cmd = cmd.lower()
         
         if cmd == 'q':
-            self._running = False
+            if self._in_round:
+                self.end_round()
+            else:
+                self.stop()
             
         elif cmd == 'r':
-            if self._audio.is_streaming():
-                self._stop_recording(end_game=True)
+            if self._in_round:
+                self.end_round()
             else:
                 self._start_recording()
     
@@ -141,6 +146,24 @@ class GameEngine:
         for listener in self._event_listeners:
             listener(event)
     
+    def end_round(self) -> None:
+        """End the current round and show score."""
+        self._in_round = False
+        self._stop_recording()
+        self._emit(GameEvent(EventType.GAME_ENDED, {"score": self._score}))
+        self._emit(GameEvent.message("Press 'r' to restart or 'q' to quit", row=1))
+    
+    def _interruptible_sleep(self, duration: float) -> None:
+        """Sleep while still checking for user input to allow early exit."""
+        end_time = time.time() + duration
+        while time.time() < end_time and self._running:
+            cmd = self._ui.get_command()
+            if cmd == 'r' or cmd == 'q':
+                self.handle_command('q')
+                if not self._running or not self._in_round:  # User quit or round ended
+                    return
+            time.sleep(0.05)  # Small sleep to avoid busy-waiting
+    
     def _new_target_note(self) -> None:
         """Choose a new target note."""
         self._current_note = random.choice(self._scale)
@@ -155,8 +178,7 @@ class GameEngine:
     def _stop_recording(self, end_game: bool = False) -> None:
         """Stop streaming and evaluate result."""
         self._audio.stop_stream()
-        if end_game: 
-            self._emit(GameEvent(EventType.GAME_ENDED))
+        self._emit(GameEvent(EventType.STREAMING_STOPPED))
         
         # if result:
         #     note, octave, freq = result
@@ -171,18 +193,20 @@ class GameEngine:
     def _start_countdown(self) -> None:
         """Start a countdown before recording."""
         self._emit(GameEvent(EventType.COUNTDOWN_STARTED))
-        time.sleep(1.5)
-        self._emit(GameEvent(EventType.COUNTDOWN_FINISHED))
+        self._interruptible_sleep(1.5)
+        if self._running and self._in_round:  # Only emit if not interrupted or ended
+            self._emit(GameEvent(EventType.COUNTDOWN_FINISHED))
 
     def start_round(self) -> None:
         """Start a new round."""
         self._round_resolved = False
+        self._in_round = True
         self._start_countdown()
         self._new_target_note()
 
     def _check_note(self, played: str) -> None:
         """Check if played note matches target."""
-        if self._round_resolved:
+        if self._round_resolved or not self._in_round:
             return
         
         if played == self._current_note:

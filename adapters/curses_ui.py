@@ -122,6 +122,7 @@ class CursesUIAdapter:
     
     def _handle_game_ended(self, data: dict[str, Any] | None) -> None:
         score = data.get("score", 0) if data else 0
+        self._stdscr.clear()
         self._message(f"Game Over! Final score: {score}", 0)
 
     def _handle_countdown_started(self, data: dict[str, Any] | None) -> None:
