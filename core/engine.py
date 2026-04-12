@@ -8,7 +8,8 @@ from .events import GameEvent, EventType
 from .protocols import UIAdapter, AudioAdapter
 
 
-C_MAJOR_SCALE = ["C", "D", "E", "F", "G", "A", "B"]
+# C_MAJOR_SCALE = ["C", "D", "E", "F", "G", "A", "B"]
+C_MAJOR_SCALE = ["B"]
 
 
 class GameEngine:
@@ -44,6 +45,8 @@ class GameEngine:
         self._running = False
         self._current_note: str | None = None
         self._score = 0
+        self._round_resolved = False
+        self._pending_next_round = False
         
         # Optional event listeners for custom integrations
         self._event_listeners: list[Callable[[GameEvent], None]] = []
@@ -55,7 +58,6 @@ class GameEngine:
         self._running = True
         self._ui.init()
         self._emit(GameEvent(EventType.GAME_STARTED))
-        self._new_target_note()
         self._emit(GameEvent.message("Press 'r' to start recording, 'q' to quit"))
     
     def stop(self) -> None:
@@ -73,6 +75,13 @@ class GameEngine:
         self.start()
         try:
             while self._running:
+                # Handle pending round transition
+                if self._pending_next_round:
+                    self._pending_next_round = False
+                    self._stop_recording()
+                    time.sleep(1)
+                    self._start_recording()
+                
                 if self._audio.is_streaming():
                     # Non-blocking poll during streaming
                     cmd = self._ui.get_command()
@@ -102,7 +111,7 @@ class GameEngine:
             
         elif cmd == 'r':
             if self._audio.is_streaming():
-                self._stop_recording()
+                self._stop_recording(end_game=True)
             else:
                 self._start_recording()
     
@@ -140,13 +149,14 @@ class GameEngine:
     def _start_recording(self) -> None:
         """Begin audio streaming."""
         self._emit(GameEvent(EventType.STREAMING_STARTED))
-        self._emit(GameEvent.message(f"Target: {self._current_note}", row=1))
+        self.start_round()
         self._audio.start_stream(self._on_note_detected)
     
-    def _stop_recording(self) -> None:
+    def _stop_recording(self, end_game: bool = False) -> None:
         """Stop streaming and evaluate result."""
         self._audio.stop_stream()
-        self._emit(GameEvent(EventType.STREAMING_STOPPED))
+        if end_game: 
+            self._emit(GameEvent(EventType.GAME_ENDED))
         
         # if result:
         #     note, octave, freq = result
@@ -157,12 +167,29 @@ class GameEngine:
         """Callback for real-time note detection during streaming."""
         self._emit(GameEvent.note_detected(note, octave, freq))
         self._check_note(note)
-    
+
+    def _start_countdown(self) -> None:
+        """Start a countdown before recording."""
+        self._emit(GameEvent(EventType.COUNTDOWN_STARTED))
+        time.sleep(1.5)
+        self._emit(GameEvent(EventType.COUNTDOWN_FINISHED))
+
+    def start_round(self) -> None:
+        """Start a new round."""
+        self._round_resolved = False
+        self._start_countdown()
+        self._new_target_note()
+
     def _check_note(self, played: str) -> None:
         """Check if played note matches target."""
+        if self._round_resolved:
+            return
+        
         if played == self._current_note:
+            self._round_resolved = True
             self._score += 1
             self._emit(GameEvent(EventType.NOTE_CORRECT, {"played": played, "expected": self._current_note}))
-            self._new_target_note()
+            # Schedule next round transition in main loop (can't stop thread from within itself)
+            self._pending_next_round = True
         else:
             self._emit(GameEvent(EventType.NOTE_INCORRECT, {"played": played, "expected": self._current_note}))

@@ -226,10 +226,9 @@ class TestGameEngineNoteChecking:
         audio = MockAudioAdapter()
         engine = GameEngine(ui, audio)
         engine.start()
-        
-        target = engine.current_note
-        
+
         engine.handle_command('r')  # Start streaming
+        target = engine.current_note
         audio.simulate_detection(target, 4, 440.0)  # Simulate callback during streaming
         
         assert engine.score == 1
@@ -239,10 +238,9 @@ class TestGameEngineNoteChecking:
         audio = MockAudioAdapter()
         engine = GameEngine(ui, audio)
         engine.start()
-        
-        target = engine.current_note
-        
+
         engine.handle_command('r')  # Start streaming
+        target = engine.current_note
         audio.simulate_detection(target, 4, 440.0)  # Simulate callback
         
         correct_events = ui.get_events_of_type(EventType.NOTE_CORRECT)
@@ -281,11 +279,11 @@ class TestGameEngineNoteChecking:
         audio = MockAudioAdapter()
         engine = GameEngine(ui, audio)
         engine.start()
-        
-        target = engine.current_note
+
         wrong_note = "X"
-        
+
         engine.handle_command('r')  # Start streaming
+        target = engine.current_note
         audio.simulate_detection(wrong_note, 4, 440.0)  # Simulate wrong note
         
         incorrect_events = ui.get_events_of_type(EventType.NOTE_INCORRECT)

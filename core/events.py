@@ -29,6 +29,10 @@ class EventType(Enum):
     DEBUG = auto()
     ERROR = auto()
 
+    # Countdown
+    COUNTDOWN_STARTED = auto()
+    COUNTDOWN_FINISHED = auto()
+
 
 @dataclass
 class GameEvent:
@@ -58,3 +62,11 @@ class GameEvent:
     @classmethod
     def error(cls, text: str) -> "GameEvent":
         return cls(EventType.ERROR, {"text": text})
+    
+    @classmethod
+    def countdown_started(cls) -> "GameEvent":
+        return cls(EventType.COUNTDOWN_STARTED)
+    
+    @classmethod
+    def countdown_finished(cls) -> "GameEvent":
+        return cls(EventType.COUNTDOWN_FINISHED)

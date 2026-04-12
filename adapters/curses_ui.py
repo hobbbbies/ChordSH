@@ -47,6 +47,8 @@ class CursesUIAdapter:
             EventType.STREAMING_STOPPED: self._handle_streaming_stopped,
             EventType.GAME_STARTED: self._handle_game_started,
             EventType.GAME_ENDED: self._handle_game_ended,
+            EventType.COUNTDOWN_STARTED: self._handle_countdown_started,
+            EventType.COUNTDOWN_FINISHED: self._handle_countdown_finished,
         }
         handler = handlers.get(event.type)
         if handler:
@@ -112,7 +114,8 @@ class CursesUIAdapter:
         self._message("Streaming... press 'r' to stop", 0)
     
     def _handle_streaming_stopped(self, data: dict[str, Any] | None) -> None:
-        self._render_start_screen()
+        pass
+        # self._render_start_screen()
     
     def _handle_game_started(self, data: dict[str, Any] | None) -> None:
         pass  # Already rendered in init()
@@ -120,6 +123,17 @@ class CursesUIAdapter:
     def _handle_game_ended(self, data: dict[str, Any] | None) -> None:
         score = data.get("score", 0) if data else 0
         self._message(f"Game Over! Final score: {score}", 0)
+
+    def _handle_countdown_started(self, data: dict[str, Any] | None) -> None:
+        self._stdscr.clear()
+        self._message("Next note coming up...", 0)
+    
+    def _handle_countdown_finished(self, data: dict[str, Any] | None) -> None:
+        # Clear the countdown message
+        self._stdscr.move(0, 0)
+        self._stdscr.clrtoeol()
+        self._stdscr.refresh()
+    
     
     # ---------- Rendering Helpers ----------
     
