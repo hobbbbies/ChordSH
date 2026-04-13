@@ -1,4 +1,5 @@
 """Tests for core/engine.py"""
+import time
 import pytest
 from unittest.mock import Mock, MagicMock, call
 from core.engine import GameEngine, C_MAJOR_SCALE
@@ -130,12 +131,26 @@ class TestGameEngineStart:
         started_events = ui.get_events_of_type(EventType.GAME_STARTED)
         assert len(started_events) == 1
 
-    def test_start_chooses_target_note(self):
+    def test_start_does_not_choose_target_note(self):
         ui = MockUIAdapter()
         engine = GameEngine(ui, MockAudioAdapter())
         
         engine.start()
         
+        # Target note is only chosen when a round starts (on 'r' command)
+        assert engine.current_note is None
+        target_events = ui.get_events_of_type(EventType.NEW_TARGET_NOTE)
+        assert len(target_events) == 0
+    
+    def test_starting_round_chooses_target_note(self):
+        ui = MockUIAdapter()
+        audio = MockAudioAdapter()
+        engine = GameEngine(ui, audio)
+        
+        engine.start()
+        engine.handle_command('r')
+        
+        # After starting recording, a round begins and target note is chosen
         assert engine.current_note in C_MAJOR_SCALE
         target_events = ui.get_events_of_type(EventType.NEW_TARGET_NOTE)
         assert len(target_events) == 1
@@ -246,7 +261,7 @@ class TestGameEngineNoteChecking:
         correct_events = ui.get_events_of_type(EventType.NOTE_CORRECT)
         assert len(correct_events) == 1
         assert correct_events[0].data["played"] == target
-        assert correct_events[0].data["expected"] == target
+        assert correct_events[0].data["expected"] == engine._note_to_interval(target)
 
     def test_correct_note_chooses_new_target(self):
         audio = MockAudioAdapter()
@@ -289,7 +304,7 @@ class TestGameEngineNoteChecking:
         incorrect_events = ui.get_events_of_type(EventType.NOTE_INCORRECT)
         assert len(incorrect_events) == 1
         assert incorrect_events[0].data["played"] == wrong_note
-        assert incorrect_events[0].data["expected"] == target
+        assert incorrect_events[0].data["expected"] == engine._note_to_interval(target)
 
 
 class TestGameEngineStreaming:
@@ -367,6 +382,25 @@ class TestGameEngineRun:
         assert audio.start_count == 1
         assert audio.stop_count >= 1
 
+    def test_in_round_boolean_tracking(self):
+        ui = MockUIAdapter()
+        audio = MockAudioAdapter()
+        
+        engine = GameEngine(ui, audio)
+        
+        # Before starting
+        assert engine._in_round is False
+        
+        engine.start()
+        engine.handle_command('r')
+        # After starting round
+        assert engine._in_round is True
+        
+        engine.handle_command('r')
+        
+        # After ending round
+        assert engine._in_round is False
+        
     def test_run_cleans_up_on_exit(self):
         ui = MockUIAdapter()
         ui.queue_commands('q')
@@ -375,3 +409,62 @@ class TestGameEngineRun:
         engine.run()
         
         assert ui.cleaned_up is True
+
+class TestGameEngineInterruptibleSleep:
+    def test_interruptible_sleep_exits_early_on_quit(self):
+        ui = MockUIAdapter()
+        ui.queue_commands('q')  # Queue quit command
+        audio = MockAudioAdapter()
+        
+        engine = GameEngine(ui, audio)
+        engine.start()
+        engine._in_round = True  # Simulate being in a round
+        
+        # Sleep should exit early when 'q' is detected
+        start_time = time.time()
+        engine._interruptible_sleep(1.0)
+        elapsed = time.time() - start_time
+        
+        # Should exit much faster than 1 second (allow 0.3s for polling overhead)
+        assert elapsed < 0.3, f"Sleep took {elapsed:.2f}s, expected < 0.3s"
+        # Round should have been ended by the quit command
+        assert engine._in_round is False
+
+    def test_interruptible_sleep_exits_early_on_record_input(self):
+        ui = MockUIAdapter()
+        ui.queue_commands('r')  # Queue quit command
+        audio = MockAudioAdapter()
+        
+        engine = GameEngine(ui, audio)
+        engine.start()
+        engine._in_round = True  # Simulate being in a round
+        
+        # Sleep should exit early when 'r' is detected
+        start_time = time.time()
+        engine._interruptible_sleep(1.0)
+        elapsed = time.time() - start_time
+        
+        # Should exit much faster than 1 second (allow 0.3s for polling overhead)
+        assert elapsed < 0.3, f"Sleep took {elapsed:.2f}s, expected < 0.3s"
+        # Round should have been ended by the quit command
+        assert engine._in_round is False
+
+    def test_interruptible_sleep_continues_when_no_input(self):
+        ui = MockUIAdapter()
+        audio = MockAudioAdapter()
+        
+        engine = GameEngine(ui, audio)
+        engine.start()
+        engine._in_round = True  # Simulate being in a round
+        
+        # Sleep should complete normally when no input is detected
+        start_time = time.time()
+        engine._interruptible_sleep(0.1)
+        elapsed = time.time() - start_time
+        
+        # Should complete close to the requested duration
+        assert 0.08 <= elapsed <= 0.12, f"Sleep took {elapsed:.2f}s, expected ~0.1s"
+        # Round should still be active
+        assert engine._in_round is True
+        
+    

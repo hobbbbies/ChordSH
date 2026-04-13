@@ -35,7 +35,7 @@ class TestGameEvent:
         event = GameEvent.new_target("G")
         
         assert event.type == EventType.NEW_TARGET_NOTE
-        assert event.data == {"note": "G"}
+        assert event.data == {"interval": "", "note": "G"}
 
     def test_note_detected_factory(self):
         event = GameEvent.note_detected("A", 4, 440.0)
@@ -59,3 +59,9 @@ class TestGameEvent:
         
         assert event.type == EventType.ERROR
         assert event.data == {"text": "Something went wrong"}
+
+    def test_config_setup_factory(self):
+        event = GameEvent.config_setup()
+        
+        assert event.type == EventType.CONFIG_SETUP
+        assert event.data == {"scales": ["C Major", "G Major"]}

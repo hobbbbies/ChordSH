@@ -48,8 +48,8 @@ class GameEvent:
     
     # Convenience constructors
     @classmethod
-    def new_target(cls, note: str) -> "GameEvent":
-        return cls(EventType.NEW_TARGET_NOTE, {"note": note})
+    def new_target(cls, note: str, interval: str = "") -> "GameEvent":
+        return cls(EventType.NEW_TARGET_NOTE, {"note": note, "interval": interval})
     
     @classmethod
     def note_detected(cls, note: str, octave: int, freq: float) -> "GameEvent":
@@ -70,3 +70,8 @@ class GameEvent:
     @classmethod
     def countdown_finished(cls) -> "GameEvent":
         return cls(EventType.COUNTDOWN_FINISHED)
+
+    @classmethod
+    def config_setup(cls) -> "GameEvent":
+        return cls(EventType.CONFIG_SETUP, {"scales": ["C Major", "G Major"]})
+

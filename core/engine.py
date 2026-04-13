@@ -8,8 +8,12 @@ from .events import GameEvent, EventType
 from .protocols import UIAdapter, AudioAdapter
 
 
-# C_MAJOR_SCALE = ["C", "D", "E", "F", "G", "A", "B"]
-C_MAJOR_SCALE = ["B"]
+C_MAJOR_SCALE = ["C", "D", "E", "F", "G", "A", "B"]
+G_MAJOR_SCALE = ["G", "A", "B", "C", "D", "E", "F#"]
+scales = [C_MAJOR_SCALE, G_MAJOR_SCALE]
+# C_MAJOR_SCALE = ["B"]
+
+ROMAN_NUMERALS = ["I", "II", "III", "IV", "V", "VI", "VII"]
 
 
 class GameEngine:
@@ -74,6 +78,7 @@ class GameEngine:
         For web/async, use start() + handle_command() + stop() instead.
         """
         self.start()
+        self.config_setup()
         try:
             while self._running:
                 # Handle pending round transition
@@ -97,6 +102,15 @@ class GameEngine:
                     self.handle_command(cmd)
         finally:
             self.stop()
+    
+    def config_setup(self) -> None:
+        """
+        Setup configuration for the game.
+        Choose scale, choose speed, and auto vs manual mode.
+        """
+        self._emit(GameEvent(EventType.CONFIG_SETUP, {"scales": ["C Major", "G Major"]}))
+        scale_selection = self._ui.wait_for_selection()
+        self._scale = self._map_index_to_scale(int(scale_selection)) 
     
     def handle_command(self, cmd: str) -> None:
         """
@@ -164,10 +178,19 @@ class GameEngine:
                     return
             time.sleep(0.05)  # Small sleep to avoid busy-waiting
     
+    def _note_to_interval(self, note: str) -> str:
+        """Convert a note to its Roman numeral interval in the current scale."""
+        try:
+            index = self._scale.index(note)
+            return ROMAN_NUMERALS[index]
+        except (ValueError, IndexError):
+            return note
+
     def _new_target_note(self) -> None:
         """Choose a new target note."""
         self._current_note = random.choice(self._scale)
-        self._emit(GameEvent.new_target(self._current_note))
+        interval = self._note_to_interval(self._current_note)
+        self._emit(GameEvent.new_target(self._current_note, interval))
     
     def _start_recording(self) -> None:
         """Begin audio streaming."""
@@ -190,18 +213,21 @@ class GameEngine:
         self._emit(GameEvent.note_detected(note, octave, freq))
         self._check_note(note)
 
-    def _start_countdown(self) -> None:
+    def _start_countdown(self) -> bool:
         """Start a countdown before recording."""
         self._emit(GameEvent(EventType.COUNTDOWN_STARTED))
         self._interruptible_sleep(1.5)
         if self._running and self._in_round:  # Only emit if not interrupted or ended
             self._emit(GameEvent(EventType.COUNTDOWN_FINISHED))
+            return True
+        return False
 
     def start_round(self) -> None:
         """Start a new round."""
         self._round_resolved = False
         self._in_round = True
-        self._start_countdown()
+        if not self._start_countdown():
+            return
         self._new_target_note()
 
     def _check_note(self, played: str) -> None:
@@ -209,11 +235,17 @@ class GameEngine:
         if self._round_resolved or not self._in_round:
             return
         
+        interval = self._note_to_interval(self._current_note)
+
         if played == self._current_note:
             self._round_resolved = True
             self._score += 1
-            self._emit(GameEvent(EventType.NOTE_CORRECT, {"played": played, "expected": self._current_note}))
+            self._emit(GameEvent(EventType.NOTE_CORRECT, {"played": played, "expected": interval}))
             # Schedule next round transition in main loop (can't stop thread from within itself)
             self._pending_next_round = True
         else:
-            self._emit(GameEvent(EventType.NOTE_INCORRECT, {"played": played, "expected": self._current_note}))
+            self._emit(GameEvent(EventType.NOTE_INCORRECT, {"played": played, "expected": interval}))
+
+    def _map_index_to_scale(self, index: int) -> str:
+        """Map index to scale name."""
+        return scales[index] if 0 <= index < len(scales) else scales[0]

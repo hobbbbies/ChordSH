@@ -49,6 +49,7 @@ class CursesUIAdapter:
             EventType.GAME_ENDED: self._handle_game_ended,
             EventType.COUNTDOWN_STARTED: self._handle_countdown_started,
             EventType.COUNTDOWN_FINISHED: self._handle_countdown_finished,
+            EventType.CONFIG_SETUP: self._handle_config_setup,
         }
         handler = handlers.get(event.type)
         if handler:
@@ -92,7 +93,9 @@ class CursesUIAdapter:
     
     def _handle_new_target(self, data: dict[str, Any] | None) -> None:
         if data:
-            self._message(f"Target note: {data.get('note', '?')}", 1)
+            interval = data.get('interval', '')
+            display = interval if interval else data.get('note', '?')
+            self._message(f"Target note: {display}", 1)
     
     def _handle_note_detected(self, data: dict[str, Any] | None) -> None:
         if data:
@@ -134,6 +137,12 @@ class CursesUIAdapter:
         self._stdscr.move(0, 0)
         self._stdscr.clrtoeol()
         self._stdscr.refresh()
+
+    def handle_config_setup(self, data: dict[str, Any] | None) -> None:
+        if data:
+            scales = data.get("scales", [])
+            self._message(f"Choose scale: {scales}", 0)
+        #TODO :implement list style selection logic
     
     
     # ---------- Rendering Helpers ----------
