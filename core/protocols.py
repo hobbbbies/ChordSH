@@ -35,6 +35,13 @@ class UIAdapter(Protocol):
         """
         ...
     
+    def wait_for_selection(self) -> str:
+        """
+        Blocking wait for user to select from a list.
+        Returns the selected index as a string.
+        """
+        ...
+    
     def init(self) -> None:
         """Initialize the UI (setup screen, connections, etc.)."""
         ...

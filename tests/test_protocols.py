@@ -66,6 +66,7 @@ class TestMockAdapterCompliance:
             def on_event(self, event): pass
             def get_command(self): return None
             def wait_for_command(self): return 'q'
+            def wait_for_selection(self): return '1'
             def init(self): pass
             def cleanup(self): pass
         
@@ -89,6 +90,7 @@ class TestMockAdapterCompliance:
                 events.append({"type": event.type.name, "data": event.data})
             def get_command(self): return None
             def wait_for_command(self): return 'q'
+            def wait_for_selection(self): return '1'
             def init(self): pass
             def cleanup(self): pass
         
@@ -102,4 +104,5 @@ class TestMockAdapterCompliance:
         
         # Events should have been captured as dicts
         assert len(events) > 0
-        assert events[0]["type"] == "GAME_STARTED"
+        assert events[0]["type"] == "CONFIG_SETUP"
+        assert events[1]["type"] == "GAME_STARTED"

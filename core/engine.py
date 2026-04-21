@@ -62,8 +62,8 @@ class GameEngine:
         """Initialize game state and UI."""
         self._running = True
         self._ui.init()
-        self._emit(GameEvent(EventType.GAME_STARTED))
-        self._emit(GameEvent.message("Press 'r' to start recording, 'q' to quit"))
+        # self._emit(GameEvent(EventType.GAME_STARTED))
+        # self._emit(GameEvent.message("Press 'r' to start recording, 'q' to quit"))
     
     def stop(self) -> None:
         """End the game and clean up."""
@@ -79,6 +79,7 @@ class GameEngine:
         """
         self.start()
         self.config_setup()
+        self.start_game()
         try:
             while self._running:
                 # Handle pending round transition
@@ -108,9 +109,16 @@ class GameEngine:
         Setup configuration for the game.
         Choose scale, choose speed, and auto vs manual mode.
         """
-        self._emit(GameEvent(EventType.CONFIG_SETUP, {"scales": ["C Major", "G Major"]}))
+        self._emit(GameEvent.config_setup())
         scale_selection = self._ui.wait_for_selection()
         self._scale = self._map_index_to_scale(int(scale_selection)) 
+    
+    def start_game(self) -> None:
+        """
+        Start the game.
+        """
+        self._emit(GameEvent(EventType.GAME_STARTED))
+        self._emit(GameEvent.message("Press 'r' to start recording, 'q' to quit"))
     
     def handle_command(self, cmd: str) -> None:
         """

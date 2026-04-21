@@ -15,6 +15,7 @@ class CursesUIAdapter:
     
     def __init__(self, stdscr: "curses.window"):
         self._stdscr = stdscr
+        self._selection_items: list[str] = []  # For list selection
     
     # ---------- UIAdapter Protocol ----------
     
@@ -69,13 +70,44 @@ class CursesUIAdapter:
             self._stdscr.nodelay(False)
     
     def wait_for_command(self) -> str:
-        """Blocking wait for input."""
-        self._stdscr.nodelay(False)
+        """Blocking wait for user input."""
+        key = self._stdscr.getch()
+        return chr(key)
+    
+    def wait_for_selection(self) -> str:
+        """Blocking wait for user to select from a list using arrow keys."""
+        if not self._selection_items:
+            return "0"
+        
+        selected_idx = 0
+        
         while True:
-            try:
-                return self._stdscr.getkey().lower()
-            except curses.error:
-                continue
+            # Highlight current selection
+            for i, item in enumerate(self._selection_items):
+                row = i + 2
+                self._stdscr.move(row, 0)
+                self._stdscr.clrtoeol()
+                
+                if i == selected_idx:
+                    # Highlighted item
+                    self._stdscr.addstr(row, 2, f"> {i + 1}. {item}", curses.A_REVERSE)
+                else:
+                    # Normal item
+                    self._stdscr.addstr(row, 2, f"  {i + 1}. {item}")
+            
+            self._stdscr.refresh()
+            
+            # Get key input
+            key = self._stdscr.getch()
+            
+            if key == curses.KEY_UP:
+                selected_idx = max(0, selected_idx - 1)
+            elif key == curses.KEY_DOWN:
+                selected_idx = min(len(self._selection_items) - 1, selected_idx + 1)
+            elif key in (curses.KEY_ENTER, 10, 13):  # Enter key
+                return str(selected_idx)
+            elif key == ord('q'):
+                return "0"  # Default to first option if quit:
     
     # ---------- Event Handlers ----------
     
@@ -138,11 +170,14 @@ class CursesUIAdapter:
         self._stdscr.clrtoeol()
         self._stdscr.refresh()
 
-    def handle_config_setup(self, data: dict[str, Any] | None) -> None:
+    def _handle_config_setup(self, data: dict[str, Any] | None) -> None:
         if data:
-            scales = data.get("scales", [])
-            self._message(f"Choose scale: {scales}", 0)
-        #TODO :implement list style selection logic
+            self._selection_items = data.get("scales", [])
+            self._stdscr.clear()
+            self._message("Choose a scale (↑/↓ to navigate, Enter to select):", 0)
+            for i, scale in enumerate(self._selection_items, 1):
+                self._stdscr.addstr(i + 1, 2, f"{i}. {scale}")
+            self._stdscr.refresh()
     
     
     # ---------- Rendering Helpers ----------

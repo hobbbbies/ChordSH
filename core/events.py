@@ -32,6 +32,7 @@ class EventType(Enum):
     # Countdown
     COUNTDOWN_STARTED = auto()
     COUNTDOWN_FINISHED = auto()
+    CONFIG_SETUP = auto()
 
 
 @dataclass

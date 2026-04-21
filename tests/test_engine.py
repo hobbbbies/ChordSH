@@ -32,6 +32,9 @@ class MockUIAdapter:
             self._command_index += 1
             return cmd
         return 'q'  # Default to quit to prevent infinite loop
+
+    def wait_for_selection(self) -> str:
+        return '1'
     
     def init(self) -> None:
         self.initialized = True
