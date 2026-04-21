@@ -2,7 +2,7 @@
 import time
 import pytest
 from unittest.mock import Mock, MagicMock, call
-from core.engine import GameEngine, C_MAJOR_SCALE
+from core.engine import GameEngine, C_MAJOR_SCALE, G_MAJOR_SCALE
 from core.events import GameEvent, EventType
 
 
@@ -129,7 +129,7 @@ class TestGameEngineStart:
         ui = MockUIAdapter()
         engine = GameEngine(ui, MockAudioAdapter())
         
-        engine.start()
+        engine.start_game()
         
         started_events = ui.get_events_of_type(EventType.GAME_STARTED)
         assert len(started_events) == 1
@@ -355,7 +355,7 @@ class TestGameEngineEventListeners:
         received_events = []
         
         engine.add_event_listener(lambda e: received_events.append(e))
-        engine.start()
+        engine.start_game()
         
         assert len(received_events) > 0
         assert any(e.type == EventType.GAME_STARTED for e in received_events)
@@ -470,4 +470,21 @@ class TestGameEngineInterruptibleSleep:
         # Round should still be active
         assert engine._in_round is True
         
+class TestGameEngineConfigSetup:
+    def test_config_setup_emits_config_setup_event(self):
+        ui = MockUIAdapter()
+        engine = GameEngine(ui, MockAudioAdapter())
+        
+        engine.config_setup()
+        
+        config_events = ui.get_events_of_type(EventType.CONFIG_SETUP)
+        assert len(config_events) == 1
+
+    def test_config_setup_sets_scale(self):
+        ui = MockUIAdapter()
+        engine = GameEngine(ui, MockAudioAdapter())
+        
+        engine.config_setup()
+        
+        assert engine._scale == G_MAJOR_SCALE
     
