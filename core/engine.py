@@ -45,6 +45,7 @@ class GameEngine:
         self._ui = ui
         self._audio = audio
         self._scale = scale or C_MAJOR_SCALE
+        self._scale_name = "C Major"  # Default scale name
         
         self._running = False
         self._current_note: str | None = None
@@ -111,7 +112,9 @@ class GameEngine:
         """
         self._emit(GameEvent.config_setup())
         scale_selection = self._ui.wait_for_selection()
-        self._scale = self._map_index_to_scale(int(scale_selection)) 
+        scale_index = int(scale_selection)
+        self._scale = self._map_index_to_scale(scale_index)
+        self._scale_name = self._get_scale_name(scale_index) 
     
     def start_game(self) -> None:
         """
@@ -193,7 +196,7 @@ class GameEngine:
             return ROMAN_NUMERALS[index]
         except (ValueError, IndexError):
             return note
-
+  
     def _new_target_note(self) -> None:
         """Choose a new target note."""
         self._current_note = random.choice(self._scale)
@@ -236,6 +239,8 @@ class GameEngine:
         self._in_round = True
         if not self._start_countdown():
             return
+        # Show scale info
+        self._emit(GameEvent.message(f"Scale: {self._scale_name}", 0))
         self._new_target_note()
 
     def _check_note(self, played: str) -> None:
@@ -254,6 +259,11 @@ class GameEngine:
         else:
             self._emit(GameEvent(EventType.NOTE_INCORRECT, {"played": played, "expected": interval}))
 
-    def _map_index_to_scale(self, index: int) -> str:
-        """Map index to scale name."""
+    def _map_index_to_scale(self, index: int) -> list[str]:
+        """Map index to scale."""
         return scales[index] if 0 <= index < len(scales) else scales[0]
+    
+    def _get_scale_name(self, index: int) -> str:
+        """Get the name of the scale by index."""
+        scale_names = ["C Major", "G Major"]
+        return scale_names[index] if 0 <= index < len(scale_names) else "C Major"

@@ -35,6 +35,20 @@
       ]
     },
     {
+      "name": "Python: pytest (unit tests only)",
+      "type": "debugpy",
+      "request": "launch",
+      "module": "pytest",
+      "console": "integratedTerminal",
+      "justMyCode": true,
+      "cwd": "${workspaceFolder}",
+      "args": [
+        "tests",
+        "--ignore=tests/test_integration.py",
+        "-v"
+      ]
+    },
+    {
       "name": "Python: pytest (integration tests)",
       "type": "debugpy",
       "request": "launch",

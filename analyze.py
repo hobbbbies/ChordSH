@@ -6,6 +6,8 @@ from scipy.io import wavfile
 
 
 ENERGY_THRESHOLD = 0.001
+MIN_FREQ = 60
+MAX_FREQ = 5000
 
 
 def freq_to_note(freq: float) -> tuple[str, int]:
@@ -20,20 +22,9 @@ def freq_to_note(freq: float) -> tuple[str, int]:
     return note, octave
 
 def find_top_notes(x_mag, freqs, nums: int) -> list:
-    # Make a copy of freqs 
-    # Pop largest index
-    # Repeat until we have nums popped indices 
-    popped_indices = []
-    while len(popped_indices) < nums:
-        greatest = int(np.argmax(x_mag))
-        popped_indices.append(greatest)
-        x_mag = np.delete(x_mag, greatest)
-    
-    top_notes = []
-    for i in range(nums):
-        top_notes.append(freqs[popped_indices[i]])
- 
-    return top_notes
+    """Find the top N frequencies by magnitude without modifying the array."""
+    top_indices = np.argsort(x_mag)[-nums:][::-1]
+    return [freqs[i] for i in top_indices]
 
 def analyze_wav(filename: str) -> tuple[str, int, float]:
     # scipy.io.wavfile needs a file-like object
@@ -57,12 +48,17 @@ def analyze_wav(filename: str) -> tuple[str, int, float]:
     # Magnitude (scaled)
     x_mag = np.abs(X) / N
 
-    mask = x_mag > ENERGY_THRESHOLD
+    # Apply energy threshold mask
+    mask = (x_mag > ENERGY_THRESHOLD) & (freqs > MIN_FREQ) & (freqs < MAX_FREQ)
+    if not np.any(mask):
+        raise ValueError("No significant audio detected")
+    x_mag_filtered = x_mag * mask
 
-    # main_idx = int(np.argmax(x_mag))
-    # main_freq = float(freqs[main_idx])
+    top_note = find_top_notes(x_mag_filtered, freqs, 1)
 
-    top_note = find_top_notes(x_mag, freqs, 1)
+    # Verify frequency is in valid range (safety check)
+    if top_note[0] <= MIN_FREQ or top_note[0] >= MAX_FREQ:
+        raise ValueError("No significant audio detected")
 
     note, octave = freq_to_note(top_note[0])
 
@@ -82,7 +78,18 @@ def analyze_buffer(audio: np.ndarray, fs: int) -> tuple[str, int, float]:
     freqs = rfftfreq(N, 1 / fs)
     x_mag = np.abs(X) / N
 
-    top_note = find_top_notes(x_mag, freqs, 1)
+    # Apply energy threshold mask
+    mask = (x_mag > ENERGY_THRESHOLD) & (freqs > MIN_FREQ) & (freqs < MAX_FREQ)
+    if not np.any(mask):
+        raise ValueError("No significant audio detected")
+    x_mag_filtered = x_mag * mask
+
+    top_note = find_top_notes(x_mag_filtered, freqs, 1)
+
+    # Verify frequency is in valid range (safety check)
+    if top_note[0] <= MIN_FREQ or top_note[0] >= MAX_FREQ:
+        raise ValueError("No significant audio detected")
+
     note, octave = freq_to_note(top_note[0])
     return note, octave, float(top_note[0])
 
