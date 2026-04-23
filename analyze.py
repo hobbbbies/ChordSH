@@ -106,7 +106,7 @@ def peaks_to_pitch_classes(peaks: list[tuple[float, float]]) -> list[str]:
     return pitch_classes
 
 
-def identify_chord(pitch_classes: list[str]) -> str | None:
+def identify_chord(pitch_classes: list[str]) -> tuple(str, str) | None:
     """Identify chord name from pitch classes using mingus.
     
     Tries sharp spelling first, then flat spelling for mingus compatibility.
@@ -118,13 +118,17 @@ def identify_chord(pitch_classes: list[str]) -> str | None:
     # Try with original (sharp) spelling
     result = determine(pitch_classes, shorthand=True)
     if result:
-        return result[0]
+        note = result[0][0]
+        chord = result[0]
+        return (note, chord)
     
     # Try with flat spelling
     flat_classes = [SHARP_TO_FLAT.get(n, n) for n in pitch_classes]
     result = determine(flat_classes, shorthand=True)
     if result:
-        return result[0]
+        note = result[0][0]
+        chord = result[0]
+        return (note, chord)
     
     return None
 
@@ -171,7 +175,7 @@ def analyze_wav(filename: str) -> tuple[str, int, float]:
     return note, octave, top_note[0]
 
 
-def analyze_buffer(audio: np.ndarray, fs: int) -> tuple[str, int, float]:
+def analyze_buffer(audio: np.ndarray, fs: int) -> tuple[str, int, float, str | None]:
     """Analyze a raw audio buffer instead of a WAV file."""
     if audio.size == 0:
         raise ValueError("Audio buffer is empty")
