@@ -219,10 +219,10 @@ class GameEngine:
         #     self._emit(GameEvent.note_detected(note, octave, freq))
         #     self._check_note(note)
     
-    def _on_note_detected(self, note: str, octave: int, freq: float) -> None:
+    def _on_note_detected(self, note: str, octave: int, freq: float, chord_name: str | None) -> None:
         """Callback for real-time note detection during streaming."""
-        self._emit(GameEvent.note_detected(note, octave, freq))
-        self._check_note(note)
+        self._emit(GameEvent.note_detected(note, octave, freq, chord_name))
+        self._check_note(note, chord_name)
 
     def _start_countdown(self) -> bool:
         """Start a countdown before recording."""
@@ -243,9 +243,9 @@ class GameEngine:
         self._emit(GameEvent.message(f"Scale: {self._scale_name}", 0))
         self._new_target_note()
 
-    def _check_note(self, played: str) -> None:
+    def _check_note(self, played: str, chord_name: str | None) -> None:
         """Check if played note matches target."""
-        if self._round_resolved or not self._in_round:
+        if self._round_resolved or not self._in_round: 
             return
         
         interval = self._note_to_interval(self._current_note)

@@ -135,6 +135,8 @@ class CursesUIAdapter:
             octave = data.get("octave", 0)
             freq = data.get("freq", 0.0)
             self._message(f"Live: {note}{octave}  {freq:.1f} Hz", 2)
+            if data.get("chord_name"):
+                self._message(f"Chord: {data.get('chord_name')}", 3)
     
     def _handle_note_correct(self, data: dict[str, Any] | None) -> None:
         self._debug("Success!")
@@ -192,7 +194,7 @@ class CursesUIAdapter:
     def _debug(self, msg: str) -> None:
         """Display debug message."""
         _, max_x = self._stdscr.getmaxyx()
-        debug_row = 3
+        debug_row = 4
         self._stdscr.move(debug_row, 0)
         self._stdscr.clrtoeol()
         self._stdscr.addstr(debug_row, 0, f"DEBUG: {msg}"[:max_x - 1])

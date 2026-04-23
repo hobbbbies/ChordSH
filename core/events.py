@@ -53,8 +53,8 @@ class GameEvent:
         return cls(EventType.NEW_TARGET_NOTE, {"note": note, "interval": interval})
     
     @classmethod
-    def note_detected(cls, note: str, octave: int, freq: float) -> "GameEvent":
-        return cls(EventType.NOTE_DETECTED, {"note": note, "octave": octave, "freq": freq})
+    def note_detected(cls, note: str, octave: int, freq: float, chord_name: str | None = None) -> "GameEvent":
+        return cls(EventType.NOTE_DETECTED, {"note": note, "octave": octave, "freq": freq, "chord_name": chord_name})
     
     @classmethod
     def message(cls, text: str, row: int = 0) -> "GameEvent":
