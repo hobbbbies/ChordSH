@@ -26,6 +26,20 @@ def find_top_notes(x_mag, freqs, nums: int) -> list:
     top_indices = np.argsort(x_mag)[-nums:][::-1]
     return [freqs[i] for i in top_indices]
 
+
+def harmonic_product_spectrum(x_mag: np.ndarray, num_harmonics: int = 5) -> np.ndarray:
+    """
+    Apply Harmonic Product Spectrum to emphasize fundamental frequency.
+    
+    Downsamples the spectrum by factors 2, 3, 4... and multiplies together.
+    Harmonics align at the fundamental, creating a strong peak there.
+    """
+    hps = x_mag.copy()
+    for h in range(2, num_harmonics + 1):
+        downsampled = x_mag[::h]
+        hps[:len(downsampled)] *= downsampled
+    return hps
+
 def analyze_wav(filename: str) -> tuple[str, int, float]:
     # scipy.io.wavfile needs a file-like object
     fs, data = wavfile.read(filename)
@@ -41,8 +55,12 @@ def analyze_wav(filename: str) -> tuple[str, int, float]:
 
     N = len(audio)
 
+    # Apply Hanning window to reduce spectral leakage
+    window = np.hanning(N)
+    audio_windowed = audio * window
+
     # FFT
-    X = rfft(audio)
+    X = rfft(audio_windowed)
     freqs = rfftfreq(N, 1 / fs)
 
     # Magnitude (scaled)
@@ -74,7 +92,12 @@ def analyze_buffer(audio: np.ndarray, fs: int) -> tuple[str, int, float]:
         audio = audio[:, 0]
 
     N = len(audio)
-    X = rfft(audio)
+
+    # Apply Hanning window to reduce spectral leakage
+    window = np.hanning(N)
+    audio_windowed = audio * window
+
+    X = rfft(audio_windowed)
     freqs = rfftfreq(N, 1 / fs)
     x_mag = np.abs(X) / N
 
