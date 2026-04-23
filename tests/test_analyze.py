@@ -2,8 +2,9 @@ import numpy as np
 import pytest
 from scipy.io import wavfile
 from pathlib import Path
+from unittest.mock import patch
 
-from analyze import analyze_wav, freq_to_note
+from analyze import analyze_wav, freq_to_note, identify_chord
 
 
 def test_freq_to_note_maps_a440_to_a4():
@@ -46,3 +47,68 @@ def test_analyze_wav_asset_detects_c_note():
     assert note == "F#"
     assert octave == 2
     assert detected_frequency == 93.25132978723404
+
+
+class TestIdentifyChord:
+    """Test chord identification with mocked mingus."""
+    
+    @patch('analyze.determine')
+    def test_identifies_c_major_with_sharp_spelling(self, mock_determine):
+        mock_determine.return_value = ['CM']
+        
+        root, chord = identify_chord(['C', 'E', 'G'])
+        
+        assert root == 'C'
+        assert chord == 'CM'
+        mock_determine.assert_called_once_with(['C', 'E', 'G'], shorthand=True)
+    
+    @patch('analyze.determine')
+    def test_identifies_chord_with_flat_spelling_fallback(self, mock_determine):
+        # First call (sharp spelling) returns empty, second call (flat spelling) succeeds
+        mock_determine.side_effect = [[], ['BbM']]
+        
+        root, chord = identify_chord(['A#', 'D', 'F'])
+        
+        assert root == 'B'
+        assert chord == 'BbM'
+        assert mock_determine.call_count == 2
+        # First call with sharp spelling
+        assert mock_determine.call_args_list[0][0][0] == ['A#', 'D', 'F']
+        # Second call with flat spelling
+        assert mock_determine.call_args_list[1][0][0] == ['Bb', 'D', 'F']
+    
+    @patch('analyze.determine')
+    def test_returns_none_for_single_note(self, mock_determine):
+        root, chord = identify_chord(['C'])
+        
+        assert root is None
+        assert chord is None
+        mock_determine.assert_not_called()
+    
+    @patch('analyze.determine')
+    def test_returns_none_for_two_notes(self, mock_determine):
+        root, chord = identify_chord(['C', 'E'])
+        
+        assert root is None
+        assert chord is None
+        mock_determine.assert_not_called()
+    
+    @patch('analyze.determine')
+    def test_returns_none_when_mingus_finds_no_match(self, mock_determine):
+        mock_determine.return_value = []
+        
+        root, chord = identify_chord(['C', 'D', 'E'])
+        
+        assert root is None
+        assert chord is None
+        assert mock_determine.call_count == 2  # Tries both sharp and flat
+    
+    @patch('analyze.determine')
+    def test_handles_first_inversion(self, mock_determine):
+        mock_determine.return_value = ['CM']
+        
+        root, chord = identify_chord(['E', 'G', 'C'])
+        
+        assert root == 'C'
+        assert chord == 'CM'
+        mock_determine.assert_called_once_with(['E', 'G', 'C'], shorthand=True)

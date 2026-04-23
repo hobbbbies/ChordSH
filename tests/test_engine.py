@@ -77,7 +77,7 @@ class MockAudioAdapter:
     
     def simulate_detection(self, note: str, octave: int, freq: float) -> None:
         if self._on_result:
-            self._on_result(note, octave, freq)
+            self._on_result(note, octave, freq, None)
 
 
 class TestGameEngineInit:

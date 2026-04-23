@@ -106,14 +106,14 @@ def peaks_to_pitch_classes(peaks: list[tuple[float, float]]) -> list[str]:
     return pitch_classes
 
 
-def identify_chord(pitch_classes: list[str]) -> tuple(str, str) | None:
+def identify_chord(pitch_classes: list[str]) -> tuple(str, str) | tuple(None, None):
     """Identify chord name from pitch classes using mingus.
     
     Tries sharp spelling first, then flat spelling for mingus compatibility.
     """
     # len of 2 will just give interval
     if len(pitch_classes) < 3:
-        return None
+        return (None, None)
     
     # Try with original (sharp) spelling
     result = determine(pitch_classes, shorthand=True)
@@ -130,7 +130,7 @@ def identify_chord(pitch_classes: list[str]) -> tuple(str, str) | None:
         chord = result[0]
         return (note, chord)
     
-    return None
+    return (None, None)
 
 def _compute_spectrum(audio: np.ndarray, fs: int) -> tuple[np.ndarray, np.ndarray]:
     """Compute windowed FFT magnitude spectrum and frequency bins."""
@@ -190,17 +190,20 @@ def analyze_buffer(audio: np.ndarray, fs: int) -> tuple[str, int, float, str | N
     x_mag_filtered = x_mag * mask
 
     top_note = find_top_notes(x_mag_filtered, freqs, 1)
-    chord_name, pitch_classes = detect_chord(audio, fs)
+    note, chord_name, pitch_classes = detect_chord(audio, fs)
 
     # Verify frequency is in valid range (safety check)
-    if top_note[0] <= MIN_FREQ or top_note[0] >= MAX_FREQ:
-        raise ValueError("No significant audio detected")
+    # if top_note[0] <= MIN_FREQ or top_note[0] >= MAX_FREQ:
+    #     raise ValueError("No significant audio detected")
 
-    note, octave = freq_to_note(top_note[0])
+    single_note, octave = freq_to_note(top_note[0]) # might deprecate this later 
+    if note is None or chord_name is None:
+        return single_note, octave, float(top_note[0]), None
+
     return note, octave, float(top_note[0]), chord_name
 
 
-def detect_chord(audio: np.ndarray, fs: int) -> tuple[str | None, list[str]]:
+def detect_chord(audio: np.ndarray, fs: int) -> tuple[str | None, str | None, list[str]]:
     """Detect chord from audio buffer.
     
     Returns (chord_name, pitch_classes) where chord_name may be None
@@ -224,6 +227,8 @@ def detect_chord(audio: np.ndarray, fs: int) -> tuple[str | None, list[str]]:
     pitch_classes = peaks_to_pitch_classes(fundamentals)
 
     # Identify chord
-    chord_name = identify_chord(pitch_classes)
+    note, chord_name = identify_chord(pitch_classes)
 
-    return chord_name, pitch_classes
+    return note, chord_name, pitch_classes
+
+    
