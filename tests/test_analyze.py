@@ -25,10 +25,9 @@ def test_analyze_wav_detects_440hz_tone(tmp_path):
     wav_path = tmp_path / "tone.wav"
     wavfile.write(wav_path, sample_rate, audio)
 
-    note, octave, detected_frequency = analyze_wav(str(wav_path))
+    note, detected_frequency = analyze_wav(str(wav_path))
 
     assert note == "A"
-    assert octave == 4
     assert detected_frequency == pytest.approx(440.0, rel=0.05)
 
 
@@ -42,10 +41,9 @@ def test_analyze_wav_rejects_empty_audio(tmp_path):
 def test_analyze_wav_asset_detects_c_note():
     wav_path = Path(__file__).parent / "assets" / "input_pu2oefzt.wav"
 
-    note, octave, detected_frequency = analyze_wav(str(wav_path))
+    note, detected_frequency = analyze_wav(str(wav_path))
 
     assert note == "F#"
-    assert octave == 2
     assert detected_frequency == 93.25132978723404
 
 
@@ -78,25 +76,25 @@ class TestIdentifyChord:
         assert mock_determine.call_args_list[1][0][0] == ['Bb', 'D', 'F']
     
     @patch('analyze.determine')
-    def test_returns_none_for_single_note(self, mock_determine):
+    def test_returns_note_only_for_single_note(self, mock_determine):
+        mock_determine.side_effect = [['C'], ['C']]
         root, chord = identify_chord(['C'])
         
-        assert root is None
-        assert chord is None
-        mock_determine.assert_not_called()
+        assert root == 'C'
+        assert chord == 'C'
     
     @patch('analyze.determine')
-    def test_returns_none_for_two_notes(self, mock_determine):
+    def test_returns_single_note_for_two_notes(self, mock_determine):
+        mock_determine.side_effect = [['C'], ['C', 'E']]
         root, chord = identify_chord(['C', 'E'])
         
-        assert root is None
-        assert chord is None
-        mock_determine.assert_not_called()
+        assert root == 'C'
+        assert chord == 'C'
     
     @patch('analyze.determine')
     def test_returns_none_when_mingus_finds_no_match(self, mock_determine):
         mock_determine.return_value = []
-        
+
         root, chord = identify_chord(['C', 'D', 'E'])
         
         assert root is None

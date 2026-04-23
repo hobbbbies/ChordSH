@@ -121,13 +121,13 @@ class SoundDeviceAudioAdapter:
                     
                     audio = np.array(rolling, dtype=np.float32)
                     try:
-                        note, octave, freq, chord_name = analyze_buffer(audio, self._samplerate)
+                        note, freq, chord_name = analyze_buffer(audio, self._samplerate)
                         
                         # Should filter out background noise. may want to adjust this later
                         if freq < MIN_FREQUENCY:
                             continue
 
-                        last_note = (note, octave, freq)
+                        last_note = (note, freq)
                         if self._last_result != last_note:
                             self._last_result_count = 1
                         else:
@@ -137,7 +137,7 @@ class SoundDeviceAudioAdapter:
                         if self._on_result and self._last_result_count >= MIN_DETECTION_COUNT:
                             self._last_result_count = 0
                             self._last_result = None
-                            self._on_result(note, octave, freq, chord_name)
+                            self._on_result(note, freq, chord_name)
                     except (ValueError, ZeroDivisionError):
                         pass  # Not enough signal, non catastrophic
         except Exception:

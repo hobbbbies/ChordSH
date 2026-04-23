@@ -111,9 +111,10 @@ def identify_chord(pitch_classes: list[str]) -> tuple(str, str) | tuple(None, No
     
     Tries sharp spelling first, then flat spelling for mingus compatibility.
     """
-    # len of 2 will just give interval
-    if len(pitch_classes) < 3:
-        return (None, None)
+    # len of 2 will just give interval 
+    # COULD BE SOURCE OF ERROR DOWN THE ROAD
+    if len(pitch_classes) == 2:
+        pitch_classes = [pitch_classes[0]]
     
     # Try with original (sharp) spelling
     result = determine(pitch_classes, shorthand=True)
@@ -149,8 +150,8 @@ def _prepare_audio(data: np.ndarray) -> np.ndarray:
     return data
 
 
-# Deprecated
-def analyze_wav(filename: str) -> tuple[str, int, float]:
+# Deprecated - use detect_chord instead
+def analyze_wav(filename: str) -> tuple[str, float]:
     fs, data = wavfile.read(filename)
 
     if data.size == 0:
@@ -171,11 +172,11 @@ def analyze_wav(filename: str) -> tuple[str, int, float]:
     if top_note[0] <= MIN_FREQ or top_note[0] >= MAX_FREQ:
         raise ValueError("No significant audio detected")
 
-    note, octave = freq_to_note(top_note[0])
-    return note, octave, top_note[0]
+    note, _ = freq_to_note(top_note[0])
+    return note, top_note[0]
 
 
-def analyze_buffer(audio: np.ndarray, fs: int) -> tuple[str, int, float, str | None]:
+def analyze_buffer(audio: np.ndarray, fs: int) -> tuple[str, float, str | None]:
     """Analyze a raw audio buffer instead of a WAV file."""
     if audio.size == 0:
         raise ValueError("Audio buffer is empty")
@@ -192,15 +193,7 @@ def analyze_buffer(audio: np.ndarray, fs: int) -> tuple[str, int, float, str | N
     top_note = find_top_notes(x_mag_filtered, freqs, 1)
     note, chord_name, pitch_classes = detect_chord(audio, fs)
 
-    # Verify frequency is in valid range (safety check)
-    # if top_note[0] <= MIN_FREQ or top_note[0] >= MAX_FREQ:
-    #     raise ValueError("No significant audio detected")
-
-    single_note, octave = freq_to_note(top_note[0]) # might deprecate this later 
-    if note is None or chord_name is None:
-        return single_note, octave, float(top_note[0]), None
-
-    return note, octave, float(top_note[0]), chord_name
+    return note, float(top_note[0]), chord_name
 
 
 def detect_chord(audio: np.ndarray, fs: int) -> tuple[str | None, str | None, list[str]]:

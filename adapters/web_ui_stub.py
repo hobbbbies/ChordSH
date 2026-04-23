@@ -56,7 +56,7 @@ class WebUIAdapter:
         Browser receives:
         {
             "type": "NOTE_DETECTED",
-            "data": {"note": "C", "octave": 4, "freq": 261.63}
+            "data": {"note": "C", "freq": 261.63, "chord_name": None}
         }
         """
         message = {
@@ -102,15 +102,15 @@ class WebAudioAdapter:
         self._ws = websocket
         self._streaming = False
         self._last_result = None
-        self._on_result: Callable[[str, int, float], None] | None = None
+        self._on_result: Callable[[str, float, str | None], None] | None = None
     
-    def start_stream(self, on_result: Callable[[str, int, float], None]) -> None:
+    def start_stream(self, on_result: Callable[[str, float, str | None], None]) -> None:
         """Tell browser to start capturing audio."""
         self._streaming = True
         self._on_result = on_result
         # await self._ws.send_json({"type": "start_audio"})
     
-    def stop_stream(self) -> tuple[str, int, float] | None:
+    def stop_stream(self) -> tuple[str, float, str | None] | None:
         """Tell browser to stop capturing."""
         self._streaming = False
         # await self._ws.send_json({"type": "stop_audio"})
@@ -119,8 +119,8 @@ class WebAudioAdapter:
     def is_streaming(self) -> bool:
         return self._streaming
     
-    def receive_audio_result(self, note: str, octave: int, freq: float) -> None:
+    def receive_audio_result(self, note: str, freq: float, chord_name: str | None = None) -> None:
         """Called when browser sends analyzed audio result."""
-        self._last_result = (note, octave, freq)
+        self._last_result = (note, freq, chord_name)
         if self._on_result:
-            self._on_result(note, octave, freq)
+            self._on_result(note, freq, chord_name)

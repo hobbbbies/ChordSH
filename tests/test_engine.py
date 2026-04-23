@@ -72,12 +72,12 @@ class MockAudioAdapter:
     def is_streaming(self) -> bool:
         return self._streaming
     
-    def set_result(self, note: str, octave: int, freq: float) -> None:
-        self._result = (note, octave, freq)
+    def set_result(self, note: str, freq: float, chord_name: str | None = None) -> None:
+        self._result = (note, freq, chord_name)
     
-    def simulate_detection(self, note: str, octave: int, freq: float) -> None:
+    def simulate_detection(self, note: str, freq: float, chord_name: str | None = None) -> None:
         if self._on_result:
-            self._on_result(note, octave, freq, None)
+            self._on_result(note, freq, chord_name)
 
 
 class TestGameEngineInit:
@@ -340,12 +340,11 @@ class TestGameEngineStreaming:
         engine.start()
         
         engine.handle_command('r')
-        audio.simulate_detection("C", 4, 261.63)
+        audio.simulate_detection("C", 261.63)
         
         detected_events = ui.get_events_of_type(EventType.NOTE_DETECTED)
         assert len(detected_events) >= 1
         assert detected_events[-1].data["note"] == "C"
-        assert detected_events[-1].data["octave"] == 4
         assert detected_events[-1].data["freq"] == 261.63
 
 

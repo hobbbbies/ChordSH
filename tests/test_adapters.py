@@ -183,8 +183,8 @@ class TestSoundDeviceAudioAdapterIntegration:
         """Manual test - requires microphone."""
         results = []
         
-        def on_result(note, octave, freq):
-            results.append((note, octave, freq))
+        def on_result(note, freq, chord_name):
+            results.append((note, freq, chord_name))
         
         adapter.start_stream(on_result)
         

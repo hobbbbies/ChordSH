@@ -38,10 +38,10 @@ class TestGameEvent:
         assert event.data == {"interval": "", "note": "G"}
 
     def test_note_detected_factory(self):
-        event = GameEvent.note_detected("A", 4, 440.0, None)
+        event = GameEvent.note_detected("A", 440.0, None)
         
         assert event.type == EventType.NOTE_DETECTED
-        assert event.data == {"note": "A", "octave": 4, "freq": 440.0, "chord_name": None}
+        assert event.data == {"note": "A", "freq": 440.0, "chord_name": None}
 
     def test_message_factory(self):
         event = GameEvent.message("Hello", row=2)

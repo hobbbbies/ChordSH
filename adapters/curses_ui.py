@@ -132,9 +132,8 @@ class CursesUIAdapter:
     def _handle_note_detected(self, data: dict[str, Any] | None) -> None:
         if data:
             note = data.get("note", "?")
-            octave = data.get("octave", 0)
             freq = data.get("freq", 0.0)
-            self._message(f"Live: {note}{octave}  {freq:.1f} Hz", 2)
+            self._message(f"Live: {note}  {freq:.1f} Hz", 2)
             if data.get("chord_name"):
                 self._message(f"Chord: {data.get('chord_name')}", 3)
     

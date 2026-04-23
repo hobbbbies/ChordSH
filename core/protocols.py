@@ -59,19 +59,19 @@ class AudioAdapter(Protocol):
     comes from local microphone, WebRTC stream, or uploaded file.
     """
     
-    def start_stream(self, on_result: Callable[[str, int, float], None]) -> None:
+    def start_stream(self, on_result: Callable[[str, float, str | None], None]) -> None:
         """
         Start streaming audio analysis.
         
         Args:
-            on_result: Callback invoked with (note, octave, freq) on each detection
+            on_result: Callback invoked with (note, freq, chord_name) on each detection
         """
         ...
     
-    def stop_stream(self) -> tuple[str, int, float] | None:
+    def stop_stream(self) -> tuple[str, float, str | None] | None:
         """
         Stop streaming and return the last detected result.
-        Returns (note, octave, freq) or None if nothing detected.
+        Returns (note, freq, chord_name) or None if nothing detected.
         """
         ...
     

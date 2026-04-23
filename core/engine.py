@@ -219,9 +219,9 @@ class GameEngine:
         #     self._emit(GameEvent.note_detected(note, octave, freq))
         #     self._check_note(note)
     
-    def _on_note_detected(self, note: str, octave: int, freq: float, chord_name: str | None) -> None:
+    def _on_note_detected(self, note: str, freq: float, chord_name: str | None) -> None:
         """Callback for real-time note detection during streaming."""
-        self._emit(GameEvent.note_detected(note, octave, freq, chord_name))
+        self._emit(GameEvent.note_detected(note, freq, chord_name))
         self._check_note(note, chord_name)
 
     def _start_countdown(self) -> bool:
