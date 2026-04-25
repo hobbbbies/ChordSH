@@ -95,7 +95,9 @@ def filter_harmonics(peaks: list[tuple[float, float]],
 
 
 def peaks_to_pitch_classes(peaks: list[tuple[float, float]]) -> list[str]:
-    """Convert peak frequencies to unique pitch class names (no octave), preserving order."""
+    """
+    Convert peak frequencies to unique pitch class names (no octave).
+    """
     seen = set()
     pitch_classes = []
     for freq, _ in peaks:
@@ -167,13 +169,28 @@ def analyze_wav(filename: str) -> tuple[str, float]:
     x_mag_filtered = x_mag * mask
 
     top_note = find_top_notes(x_mag_filtered, freqs, 1)
-
-    # Verify frequency is in valid range (safety check)
-    if top_note[0] <= MIN_FREQ or top_note[0] >= MAX_FREQ:
-        raise ValueError("No significant audio detected")
+    note, chord_name, pitch_classes = detect_chord(audio, fs)
 
     note, _ = freq_to_note(top_note[0])
-    return note, top_note[0]
+    return note, float(top_note[0]), chord_name
+
+def _prepare_analyze_wav(filename: str) -> tuple[str, float]:
+    fs, data = wavfile.read(filename)
+
+    if data.size == 0:
+        raise ValueError("Recorded audio is empty")
+
+    audio = _prepare_audio(data)
+    x_mag, freqs = _compute_spectrum(audio, fs)
+
+    # Apply energy threshold mask
+    mask = (x_mag > ENERGY_THRESHOLD) & (freqs > MIN_FREQ) & (freqs < MAX_FREQ)
+    if not np.any(mask):
+        raise ValueError("No significant audio detected")
+    x_mag_filtered = x_mag * mask
+
+    top_note = find_top_notes(x_mag_filtered, freqs, 1)
+    return fs, audio, top_note
 
 
 def analyze_buffer(audio: np.ndarray, fs: int) -> tuple[str, float, str | None]:
@@ -205,7 +222,8 @@ def detect_chord(audio: np.ndarray, fs: int) -> tuple[str | None, str | None, li
     if audio.size == 0:
         raise ValueError("Audio buffer is empty")
 
-    audio = _prepare_audio(audio)
+    # FIX: Why do we call _prepare_audio on already prepared audio?
+    # audio = _prepare_audio(audio)
     x_mag, freqs = _compute_spectrum(audio, fs)
 
     # Find significant peaks

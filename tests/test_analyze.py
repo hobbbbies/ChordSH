@@ -25,7 +25,7 @@ def test_analyze_wav_detects_440hz_tone(tmp_path):
     wav_path = tmp_path / "tone.wav"
     wavfile.write(wav_path, sample_rate, audio)
 
-    note, detected_frequency = analyze_wav(str(wav_path))
+    note, detected_frequency, _ = analyze_wav(str(wav_path))
 
     assert note == "A"
     assert detected_frequency == pytest.approx(440.0, rel=0.05)
@@ -41,7 +41,7 @@ def test_analyze_wav_rejects_empty_audio(tmp_path):
 def test_analyze_wav_asset_detects_c_note():
     wav_path = Path(__file__).parent / "assets" / "input_pu2oefzt.wav"
 
-    note, detected_frequency = analyze_wav(str(wav_path))
+    note, detected_frequency, _ = analyze_wav(str(wav_path))
 
     assert note == "F#"
     assert detected_frequency == 93.25132978723404
@@ -110,3 +110,7 @@ class TestIdentifyChord:
         assert root == 'C'
         assert chord == 'CM'
         mock_determine.assert_called_once_with(['E', 'G', 'C'], shorthand=True)
+
+
+# class TestFindSpectralPeaks:
+#     def test_
