@@ -169,7 +169,7 @@ def analyze_wav(filename: str) -> tuple[str, float]:
     x_mag_filtered = x_mag * mask
 
     top_note = find_top_notes(x_mag_filtered, freqs, 1)
-    note, chord_name, pitch_classes = detect_chord(audio, fs)
+    note, chord_name, pitch_classes = detect_chord(x_mag, freqs)
 
     note, _ = freq_to_note(top_note[0])
     return note, float(top_note[0]), chord_name
@@ -190,7 +190,7 @@ def _prepare_analyze_wav(filename: str) -> tuple[str, float]:
     x_mag_filtered = x_mag * mask
 
     top_note = find_top_notes(x_mag_filtered, freqs, 1)
-    return fs, audio, top_note
+    return fs, audio, top_note, x_mag, freqs
 
 
 def analyze_buffer(audio: np.ndarray, fs: int) -> tuple[str, float, str | None]:
@@ -208,23 +208,25 @@ def analyze_buffer(audio: np.ndarray, fs: int) -> tuple[str, float, str | None]:
     x_mag_filtered = x_mag * mask
 
     top_note = find_top_notes(x_mag_filtered, freqs, 1)
-    note, chord_name, pitch_classes = detect_chord(audio, fs)
+    note, chord_name, pitch_classes = detect_chord(x_mag, freqs)
 
     return note, float(top_note[0]), chord_name
 
 
-def detect_chord(audio: np.ndarray, fs: int) -> tuple[str | None, str | None, list[str]]:
+def detect_chord(x_mag: np.ndarray, freqs: np.ndarray) -> tuple[str | None, str | None, list[str]]:
     """Detect chord from audio buffer.
     
     Returns (chord_name, pitch_classes) where chord_name may be None
     if fewer than 2 distinct notes are found.
     """
-    if audio.size == 0:
-        raise ValueError("Audio buffer is empty")
+    # if audio.size == 0:
+    #     raise ValueError("Auedio buffer is empty")
 
     # FIX: Why do we call _prepare_audio on already prepared audio?
     # audio = _prepare_audio(audio)
-    x_mag, freqs = _compute_spectrum(audio, fs)
+
+    # And this gets called redundantly as well... 
+    # x_mag, freqs = _compute_spectrum(audio, fs)
 
     # Find significant peaks
     peaks = find_spectral_peaks(x_mag, freqs)

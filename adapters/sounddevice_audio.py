@@ -137,7 +137,8 @@ class SoundDeviceAudioAdapter:
                         if self._on_result and self._last_result_count >= MIN_DETECTION_COUNT:
                             self._last_result_count = 0
                             self._last_result = None
-                            self._on_result(note, freq, chord_name)
+                            if note is not None:
+                                self._on_result(note, freq, chord_name)
                     except (ValueError, ZeroDivisionError):
                         pass  # Not enough signal, non catastrophic
         except Exception:
