@@ -7,8 +7,9 @@ from collections import deque
 from typing import Callable
 import numpy as np
 import sounddevice as sd
+import soundfile as sf
 from analyze import analyze_buffer
-
+from core.events import GameEvent, EventType
 
 WINDOW_SECONDS = 2.0
 MIN_DETECTION_COUNT = 5
@@ -43,6 +44,10 @@ class SoundDeviceAudioAdapter:
         
         # For stop signaling from UI
         self._stop_event = threading.Event()
+        
+        # Current target note from engine
+        self._target_note: str | None = None
+        self._target_interval: str | None = None
     
     # ---------- AudioAdapter Protocol ----------
     
@@ -82,6 +87,13 @@ class SoundDeviceAudioAdapter:
     def is_streaming(self) -> bool:
         """Check if currently streaming."""
         return self._streaming
+    
+    def on_event(self, event: GameEvent) -> None:
+        """Handle game events from the engine."""
+        if event.type == EventType.NEW_TARGET_NOTE:
+            self._target_note = event.data.get("note")
+            self._target_interval = event.data.get("interval")
+            # Could use this to adjust analysis parameters, provide feedback, etc.
     
     # ---------- Internal ----------
     
@@ -154,3 +166,8 @@ class SoundDeviceAudioAdapter:
                 self._audio_queue.get_nowait()
             except queue.Empty:
                 break
+
+    def play_wav(self, filename: str) -> None:
+        data, fs = sf.read('your_file.wav')
+        sd.play(data, fs)
+        sd.wait()

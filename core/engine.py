@@ -56,6 +56,11 @@ class GameEngine:
         
         # Optional event listeners for custom integrations
         self._event_listeners: list[Callable[[GameEvent], None]] = []
+        
+        # Future me: Check this out later
+        # Register audio adapter to receive events if it has on_event method
+        if hasattr(audio, 'on_event'):
+            self.add_event_listener(audio.on_event)
     
     # ---------- Public API ----------
     
@@ -201,6 +206,9 @@ class GameEngine:
         """Choose a new target note."""
         self._current_note = random.choice(self._scale)
         interval = self._note_to_interval(self._current_note)
+
+        """TODO: Send interval to audioadapter"""
+
         self._emit(GameEvent.new_target(self._current_note, interval))
     
     def _start_recording(self) -> None:

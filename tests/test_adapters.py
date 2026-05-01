@@ -194,3 +194,25 @@ class TestSoundDeviceAudioAdapterIntegration:
         last_result = adapter.stop_stream()
         
         assert last_result is not None or len(results) > 0
+    
+    def test_receives_new_target_note_event(self, adapter):
+        """Audio adapter should receive and store NEW_TARGET_NOTE events."""
+        event = GameEvent.new_target("C", "I")
+        
+        adapter.on_event(event)
+        
+        assert adapter._target_note == "C"
+        assert adapter._target_interval == "I"
+    
+    def test_ignores_other_events(self, adapter):
+        """Audio adapter should ignore non-NEW_TARGET_NOTE events."""
+        adapter._target_note = "D"
+        adapter._target_interval = "II"
+        
+        # Send a different event type
+        event = GameEvent(EventType.GAME_STARTED)
+        adapter.on_event(event)
+        
+        # Target should remain unchanged
+        assert adapter._target_note == "D"
+        assert adapter._target_interval == "II"
