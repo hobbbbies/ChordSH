@@ -1,10 +1,14 @@
 """Tests for adapters (curses_ui, sounddevice_audio)"""
+import os
 import pytest
 from unittest.mock import Mock, MagicMock, patch
-import queue
+from pathlib import Path
 import numpy as np
 
 from core.events import GameEvent, EventType
+
+# Set RUN_HARDWARE_TESTS=1 to run tests that require audio hardware
+SKIP_HARDWARE_TESTS = not os.getenv("RUN_HARDWARE_TESTS")
 
 
 class TestCursesUIAdapter:
@@ -178,7 +182,7 @@ class TestSoundDeviceAudioAdapterIntegration:
         from adapters.sounddevice_audio import SoundDeviceAudioAdapter
         return SoundDeviceAudioAdapter()
     
-    @pytest.mark.skip(reason="Requires audio hardware")
+    @pytest.mark.skipif(SKIP_HARDWARE_TESTS, reason="Requires audio hardware - set RUN_HARDWARE_TESTS=1 to run")
     def test_real_audio_streaming(self, adapter):
         """Manual test - requires microphone."""
         results = []
@@ -216,3 +220,13 @@ class TestSoundDeviceAudioAdapterIntegration:
         # Target should remain unchanged
         assert adapter._target_note == "D"
         assert adapter._target_interval == "II"
+
+    @pytest.mark.skipif(SKIP_HARDWARE_TESTS, reason="Requires audio output - set RUN_HARDWARE_TESTS=1 to run")
+    def test_play_wav_plays_with_existing_file(self, adapter):
+        wav_path = Path(__file__).parent / "assets" / "input_pu2oefzt.wav"
+        adapter.play_wav(wav_path)
+        assert 1 == 1
+
+# class TestPlayWav:
+    
+

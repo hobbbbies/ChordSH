@@ -10,6 +10,7 @@ import sounddevice as sd
 import soundfile as sf
 from analyze import analyze_buffer
 from core.events import GameEvent, EventType
+from pathlib import Path
 
 WINDOW_SECONDS = 2.0
 MIN_DETECTION_COUNT = 5
@@ -93,7 +94,7 @@ class SoundDeviceAudioAdapter:
         if event.type == EventType.NEW_TARGET_NOTE:
             self._target_note = event.data.get("note")
             self._target_interval = event.data.get("interval")
-            # Could use this to adjust analysis parameters, provide feedback, etc.
+            self.play_wav(filename=None)
     
     # ---------- Internal ----------
     
@@ -167,7 +168,13 @@ class SoundDeviceAudioAdapter:
             except queue.Empty:
                 break
 
-    def play_wav(self, filename: str) -> None:
-        data, fs = sf.read('your_file.wav')
+    def play_wav(self, filename: str | None) -> None:
+        """Plays WAV file to speakers"""
+        root_wav = Path(__file__).parent.parent / "assets" / "root.wav"
+        data, fs = sf.read(root_wav)
         sd.play(data, fs)
         sd.wait()
+        if filename is not None:
+            data, fs = sf.read(filename)
+            sd.play(data, fs)
+            sd.wait()
