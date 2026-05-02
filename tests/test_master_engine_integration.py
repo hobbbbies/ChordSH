@@ -7,7 +7,7 @@ class TestMasterEngineIntegration:
     def test_master_engine_run_and_quit(self):
         ui = MockUIAdapter()
         audio = MockAudioAdapter()
-        ui.wait_for_selection = lambda items: "q"
+        ui.wait_for_selection = lambda items, use_enter_key=True: "q"
         engine = MasterEngine(ui, audio)
         engine.run()
         assert engine._running is False
@@ -18,7 +18,7 @@ class TestMasterEngineIntegration:
         audio = MockAudioAdapter()
         
         call_count = 0
-        def fake_selection():
+        def fake_selection(items, use_enter_key=True):
             nonlocal call_count
             call_count += 1
             return "0" if call_count == 1 else "q"

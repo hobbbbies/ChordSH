@@ -117,7 +117,9 @@ class CursesUIAdapter:
             elif key == ord('q'):
                 return "q"
             elif key == ord('d') and not use_enter_key:
-                return 'd'
+                return f"d:{selected_idx}"
+            elif key == ord(' ') and not use_enter_key:
+                return f" :{selected_idx}"
     
     # ---------- Event Handlers ----------
     
@@ -196,6 +198,8 @@ class CursesUIAdapter:
 
     def _handle_looper_recording(self, data: dict[str, Any] | None) -> None:
         self._stdscr.clear()
+        self._message("=== Looper ===  [REC]", 0)
+        self._message("Recording... press ENTER to stop", 1)
 
     def _handle_looper_stopped(self, data: dict[str, Any] | None) -> None:
         self._stdscr.clear()
@@ -206,37 +210,11 @@ class CursesUIAdapter:
     def _handle_looper_status(self, data: dict[str, Any] | None) -> None:
         if not data:
             return
-        
-        state = data.get("state", "IDLE")
-        duration = data.get("duration", 0.0)
-        loop_count = data.get("loop_count", 0)
-        
-        # State labels
-        state_labels = {
-            "IDLE": "IDLE",
-            "RECORDING": "[REC]",
-            "PLAYING": "[PLAYING]",
-            "PAUSED": "[PAUSED]",
-        }
-        label = state_labels.get(state, state)
-        
-        # Render header
-        self._message(f"=== Looper ===  {label}", 0)
-        
-        # Render state-specific UI
-        if state == "IDLE":
-            self._message("Press ENTER to start recording", 1)
-            self._message("Press 'q' to quit", 2)
-        elif state == "RECORDING":
-            self._message("Recording... press ENTER to stop", 1)
-            self._stdscr.move(2, 0)
-            self._stdscr.clrtoeol()
-        elif state == "PAUSED":
-            self._message(f"Recorded: {duration:.1f}s", 1)
-            self._message("SPACE: play loop  |  ENTER: re-record  |  q: quit", 2)
-        elif state == "PLAYING":
-            self._message(f"Loop {loop_count}  ({duration:.1f}s)", 1)
-            self._message("SPACE: stop  |  ENTER: re-record  |  q: quit", 2)
+        track_count = data.get("track_count", 0)
+        self._stdscr.clear()
+        tracks_info = f"  ({track_count} tracks)" if track_count > 0 else ""
+        self._message(f"=== Looper ==={tracks_info}", 0)
+        self._message("ENTER: record | d: delete | SPACE: play/stop | q: quit", 1)
 
     def _handle_config_setup(self, data: dict[str, Any] | None) -> None:
         if data:

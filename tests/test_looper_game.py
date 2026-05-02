@@ -1,7 +1,7 @@
 """Tests for core/looper_game.py — LooperGame engine."""
 import numpy as np
 import pytest
-from core.looper_game import LooperGame, LooperState
+from core.looper_game import LooperGame, LooperState, LooperTrack
 from core.events import EventType
 from conftest import MockUIAdapter, MockAudioAdapter
 
@@ -23,88 +23,122 @@ class TestLooperGameInit:
 
         assert game.is_running is False
         assert game.state == LooperState.IDLE
-        assert game.duration == 0.0
-        assert game.loop_count == 0
+        assert len(game.tracks) == 0
 
 
 class TestLooperGameRecording:
-    def test_r_starts_recording(self):
+    def test_start_recording(self):
         ui = MockUIAdapter()
         audio = MockAudioAdapter()
         game = LooperGame(ui, audio)
         game._running = True
 
-        game._handle_command('r')
+        game._start_recording()
 
         assert game.state == LooperState.RECORDING
         assert audio.record_buffer_count == 1
         assert any(e.type == EventType.LOOPER_RECORDING for e in ui.events)
 
-    def test_r_stops_recording(self):
+    def test_stop_recording_appends_track(self):
         ui = MockUIAdapter()
         audio = MockAudioAdapter()
         audio.set_fake_buffer(FAKE_AUDIO)
         game = LooperGame(ui, audio)
         game._running = True
 
-        game._handle_command('r')  # Start
-        game._handle_command('r')  # Stop
+        game._start_recording()
+        game._stop_recording()
 
         assert game.state == LooperState.PAUSED
-        assert game._buffer is not None
+        assert len(game.tracks) == 1
         assert any(e.type == EventType.LOOPER_STOPPED for e in ui.events)
 
     def test_recording_with_no_audio_goes_idle(self):
         ui = MockUIAdapter()
         audio = MockAudioAdapter()
-        # No fake buffer set — stop_record_buffer returns None
         game = LooperGame(ui, audio)
         game._running = True
 
-        game._handle_command('r')  # Start
-        game._handle_command('r')  # Stop
+        game._start_recording()
+        game._stop_recording()
 
         assert game.state == LooperState.IDLE
+        assert len(game.tracks) == 0
+
+    def test_recording_stops_playback_first(self):
+        ui = MockUIAdapter()
+        audio = MockAudioAdapter()
+        audio.set_fake_buffer(FAKE_AUDIO)
+        game = LooperGame(ui, audio)
+        game._running = True
+
+        game._start_recording()
+        game._stop_recording()
+        game._play_track(0)
+        game._start_recording()
+
+        assert game.state == LooperState.RECORDING
+        assert audio.stop_playback_count >= 1
 
 
 class TestLooperGamePlayback:
-    def test_space_starts_playback(self):
+    def test_play_track(self):
         ui = MockUIAdapter()
         audio = MockAudioAdapter()
         audio.set_fake_buffer(FAKE_AUDIO)
         game = LooperGame(ui, audio)
         game._running = True
 
-        game._handle_command('r')  # Start recording
-        game._handle_command('r')  # Stop recording
-        game._handle_command(' ')  # Play
+        game._start_recording()
+        game._stop_recording()
+        game._play_track(0)
 
         assert game.state == LooperState.PLAYING
+        assert game._playing_track_idx == 0
         assert audio.play_buffer_count == 1
         assert any(e.type == EventType.LOOPER_PLAYING for e in ui.events)
 
-    def test_space_stops_playback(self):
+    def test_toggle_playback_stops_same_track(self):
         ui = MockUIAdapter()
         audio = MockAudioAdapter()
         audio.set_fake_buffer(FAKE_AUDIO)
         game = LooperGame(ui, audio)
         game._running = True
 
-        game._handle_command('r')  # Record
-        game._handle_command('r')  # Stop
-        game._handle_command(' ')  # Play
-        game._handle_command(' ')  # Stop
+        game._start_recording()
+        game._stop_recording()
+        game._toggle_playback(0)
+        game._toggle_playback(0)
 
         assert game.state == LooperState.PAUSED
+        assert game._playing_track_idx is None
         assert audio.stop_playback_count >= 1
 
-    def test_space_without_buffer_does_nothing(self):
+    def test_toggle_playback_switches_track(self):
+        ui = MockUIAdapter()
+        audio = MockAudioAdapter()
+        audio.set_fake_buffer(FAKE_AUDIO)
+        game = LooperGame(ui, audio)
+        game._running = True
+
+        game._start_recording()
+        game._stop_recording()
+        game._start_recording()
+        game._stop_recording()
+        game._toggle_playback(0)
+        game._toggle_playback(1)
+
+        assert game.state == LooperState.PLAYING
+        assert game._playing_track_idx == 1
+        assert audio.play_buffer_count == 2
+
+    def test_toggle_on_empty_does_nothing(self):
         ui = MockUIAdapter()
         audio = MockAudioAdapter()
         game = LooperGame(ui, audio)
         game._running = True
 
-        game._handle_command(' ')
+        game._toggle_playback(0)
 
         assert game.state == LooperState.IDLE
 
@@ -115,39 +149,118 @@ class TestLooperGamePlayback:
         game = LooperGame(ui, audio)
         game._running = True
 
-        game._handle_command('r')
-        game._handle_command('r')
-        game._handle_command(' ')
+        game._start_recording()
+        game._stop_recording()
+        game._play_track(0)
 
         assert audio._play_loop is True
-        assert audio._play_on_loop is not None
 
 
-class TestLooperGameQuit:
-    def test_q_quits(self):
-        ui = MockUIAdapter()
-        audio = MockAudioAdapter()
-        game = LooperGame(ui, audio)
-        game._running = True
-
-        game._handle_command('q')
-
-        assert game.is_running is False
-
-    def test_re_record_stops_playback_first(self):
+class TestLooperGameTrackManagement:
+    def test_delete_track(self):
         ui = MockUIAdapter()
         audio = MockAudioAdapter()
         audio.set_fake_buffer(FAKE_AUDIO)
         game = LooperGame(ui, audio)
         game._running = True
 
-        game._handle_command('r')  # Record
-        game._handle_command('r')  # Stop
-        game._handle_command(' ')  # Play
-        game._handle_command('r')  # Re-record (should stop playback)
+        game._start_recording()
+        game._stop_recording()
+        game._delete_track(0)
 
-        assert game.state == LooperState.RECORDING
+        assert len(game.tracks) == 0
+        assert game.state == LooperState.IDLE
+
+    def test_delete_playing_track_stops_playback(self):
+        ui = MockUIAdapter()
+        audio = MockAudioAdapter()
+        audio.set_fake_buffer(FAKE_AUDIO)
+        game = LooperGame(ui, audio)
+        game._running = True
+
+        game._start_recording()
+        game._stop_recording()
+        game._play_track(0)
+        game._delete_track(0)
+
+        assert game.state == LooperState.IDLE
         assert audio.stop_playback_count >= 1
+
+    def test_delete_before_playing_adjusts_index(self):
+        ui = MockUIAdapter()
+        audio = MockAudioAdapter()
+        audio.set_fake_buffer(FAKE_AUDIO)
+        game = LooperGame(ui, audio)
+        game._running = True
+
+        game._start_recording()
+        game._stop_recording()
+        game._start_recording()
+        game._stop_recording()
+        game._play_track(1)
+        game._delete_track(0)
+
+        assert game._playing_track_idx == 0
+        assert len(game.tracks) == 1
+
+    def test_delete_out_of_range_does_nothing(self):
+        ui = MockUIAdapter()
+        audio = MockAudioAdapter()
+        game = LooperGame(ui, audio)
+        game._running = True
+
+        game._delete_track(5)
+
+        assert len(game.tracks) == 0
+
+
+class TestLooperGameMultipleTracks:
+    def test_multiple_recordings_append(self):
+        ui = MockUIAdapter()
+        audio = MockAudioAdapter()
+        audio.set_fake_buffer(FAKE_AUDIO)
+        game = LooperGame(ui, audio)
+        game._running = True
+
+        game._start_recording()
+        game._stop_recording()
+        game._start_recording()
+        game._stop_recording()
+
+        assert len(game.tracks) == 2
+
+    def test_format_track_list_empty(self):
+        game = LooperGame(MockUIAdapter(), MockAudioAdapter())
+        items = game._format_track_list()
+        assert items == ["(no tracks yet)"]
+
+    def test_format_track_list_with_tracks(self):
+        ui = MockUIAdapter()
+        audio = MockAudioAdapter()
+        audio.set_fake_buffer(FAKE_AUDIO)
+        game = LooperGame(ui, audio)
+        game._running = True
+
+        game._start_recording()
+        game._stop_recording()
+
+        items = game._format_track_list()
+        assert len(items) == 1
+        assert "Track 1:" in items[0]
+
+    def test_format_shows_playing_indicator(self):
+        ui = MockUIAdapter()
+        audio = MockAudioAdapter()
+        audio.set_fake_buffer(FAKE_AUDIO)
+        game = LooperGame(ui, audio)
+        game._running = True
+
+        game._start_recording()
+        game._stop_recording()
+        game._play_track(0)
+
+        items = game._format_track_list()
+        assert "[playing]" in items[0]
 
 
 class TestLooperGameRun:
@@ -177,41 +290,38 @@ class TestLooperGameRun:
         ui = MockUIAdapter()
         audio = MockAudioAdapter()
         audio.set_fake_buffer(FAKE_AUDIO)
-        ui.queue_commands('r', 'r', 'q')
+        # Enter to record, Enter to stop, q to quit
+        ui.queue_commands('\n', '\n', 'q')
 
         game = LooperGame(ui, audio)
         game.run()
 
         assert game.is_running is False
-        assert game._buffer is not None
+        assert len(game.tracks) == 1
 
-
-class TestLooperGameStatusEvents:
-    def test_status_events_emitted(self):
+    def test_run_delete_track(self):
         ui = MockUIAdapter()
         audio = MockAudioAdapter()
         audio.set_fake_buffer(FAKE_AUDIO)
+        # Record, stop, delete track 0, quit
+        ui.queue_commands('\n', '\n', 'd:0', 'q')
+
         game = LooperGame(ui, audio)
-        game._running = True
+        game.run()
 
-        game._handle_command('r')  # Record
-        game._handle_command('r')  # Stop
+        assert len(game.tracks) == 0
 
-        status_events = ui.get_events_of_type(EventType.LOOPER_STATUS)
-        assert len(status_events) >= 2
-
-    def test_idle_status_on_init(self):
+    def test_run_play_and_quit(self):
         ui = MockUIAdapter()
         audio = MockAudioAdapter()
-        game = LooperGame(ui, audio)
-        game._running = True
-        game._show_status()
+        audio.set_fake_buffer(FAKE_AUDIO)
+        # Record, stop, play track 0, quit
+        ui.queue_commands('\n', '\n', ' :0', 'q')
 
-        status_events = ui.get_events_of_type(EventType.LOOPER_STATUS)
-        assert len(status_events) >= 1
-        assert status_events[-1].data["state"] == "IDLE"
-        assert status_events[-1].data["duration"] == 0.0
-        assert status_events[-1].data["loop_count"] == 0
+        game = LooperGame(ui, audio)
+        game.run()
+
+        assert audio.play_buffer_count == 1
 
 
 class TestLooperGameCleanup:
@@ -222,7 +332,7 @@ class TestLooperGameCleanup:
         game = LooperGame(ui, audio)
         game._running = True
 
-        game._handle_command('r')  # Start recording
+        game._start_recording()
         game._cleanup()
 
         assert game.state == LooperState.IDLE
@@ -235,9 +345,9 @@ class TestLooperGameCleanup:
         game = LooperGame(ui, audio)
         game._running = True
 
-        game._handle_command('r')  # Record
-        game._handle_command('r')  # Stop
-        game._handle_command(' ')  # Play
+        game._start_recording()
+        game._stop_recording()
+        game._play_track(0)
         game._cleanup()
 
         assert game.state == LooperState.IDLE

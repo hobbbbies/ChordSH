@@ -68,7 +68,7 @@ class TestMasterEngineUILifecycle:
         ui.queue_commands()  # No commands — wait_for_selection returns 'q' via wait_for_command fallback
         engine = MasterEngine(ui, MockAudioAdapter())
         # Patch wait_for_selection to return 'q' immediately
-        ui.wait_for_selection = lambda items: "q"
+        ui.wait_for_selection = lambda items, use_enter_key=True: "q"
         
         engine.run()
         
@@ -76,7 +76,7 @@ class TestMasterEngineUILifecycle:
 
     def test_run_cleans_up_ui_on_exit(self):
         ui = MockUIAdapter()
-        ui.wait_for_selection = lambda items: "q"
+        ui.wait_for_selection = lambda items, use_enter_key=True: "q"
         engine = MasterEngine(ui, MockAudioAdapter())
         
         engine.run()
@@ -85,7 +85,7 @@ class TestMasterEngineUILifecycle:
 
     def test_run_cleans_up_ui_on_exception(self):
         ui = MockUIAdapter()
-        ui.wait_for_selection = lambda items: (_ for _ in ()).throw(RuntimeError("boom"))
+        ui.wait_for_selection = lambda items, use_enter_key=True: (_ for _ in ()).throw(RuntimeError("boom"))
         engine = MasterEngine(ui, MockAudioAdapter())
         
         with pytest.raises(RuntimeError):
@@ -99,7 +99,7 @@ class TestMasterEngineUILifecycle:
 class TestMasterEngineMenu:
     def test_run_emits_master_menu_event(self):
         ui = MockUIAdapter()
-        ui.wait_for_selection = lambda items: "q"
+        ui.wait_for_selection = lambda items, use_enter_key=True: "q"
         engine = MasterEngine(ui, MockAudioAdapter())
         
         engine.run()
@@ -109,7 +109,7 @@ class TestMasterEngineMenu:
 
     def test_menu_event_contains_game_names(self):
         ui = MockUIAdapter()
-        ui.wait_for_selection = lambda items: "q"
+        ui.wait_for_selection = lambda items, use_enter_key=True: "q"
         engine = MasterEngine(ui, MockAudioAdapter())
         
         engine.run()
@@ -119,7 +119,7 @@ class TestMasterEngineMenu:
 
     def test_menu_event_contains_multiple_game_names(self):
         ui = MockUIAdapter()
-        ui.wait_for_selection = lambda items: "q"
+        ui.wait_for_selection = lambda items, use_enter_key=True: "q"
         engine = MasterEngine(ui, MockAudioAdapter())
         engine._games = [FakeGame, FakeGameSecond]
         
@@ -134,7 +134,7 @@ class TestMasterEngineMenu:
 class TestMasterEngineQuit:
     def test_quit_from_menu_exits(self):
         ui = MockUIAdapter()
-        ui.wait_for_selection = lambda items: "q"
+        ui.wait_for_selection = lambda items, use_enter_key=True: "q"
         engine = MasterEngine(ui, MockAudioAdapter())
         
         engine.run()
@@ -143,7 +143,7 @@ class TestMasterEngineQuit:
 
     def test_quit_sets_running_false(self):
         ui = MockUIAdapter()
-        ui.wait_for_selection = lambda items: "q"
+        ui.wait_for_selection = lambda items, use_enter_key=True: "q"
         engine = MasterEngine(ui, MockAudioAdapter())
         
         engine.run()
@@ -157,7 +157,7 @@ class TestMasterEngineGameDelegation:
     def test_selecting_game_runs_it(self):
         ui = MockUIAdapter()
         call_count = 0
-        def fake_selection(items):
+        def fake_selection(items, use_enter_key=True):
             nonlocal call_count
             call_count += 1
             return "0" if call_count == 1 else "q"
@@ -187,7 +187,7 @@ class TestMasterEngineGameDelegation:
                 pass
         
         call_count = 0
-        def fake_selection(items):
+        def fake_selection(items, use_enter_key=True):
             nonlocal call_count
             call_count += 1
             return "0" if call_count == 1 else "q"
@@ -215,7 +215,7 @@ class TestMasterEngineGameDelegation:
                 games_run += 1
         
         call_count = 0
-        def fake_selection(items):
+        def fake_selection(items, use_enter_key=True):
             nonlocal call_count
             call_count += 1
             # Run game twice, then quit
@@ -237,7 +237,7 @@ class TestMasterEngineGameDelegation:
     def test_invalid_selection_loops_back_to_menu(self):
         ui = MockUIAdapter()
         call_count = 0
-        def fake_selection(items):
+        def fake_selection(items, use_enter_key=True):
             nonlocal call_count
             call_count += 1
             if call_count == 1:

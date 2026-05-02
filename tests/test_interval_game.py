@@ -303,7 +303,7 @@ class TestIntervalGameEventListeners:
 class TestIntervalGameRun:
     def test_run_processes_commands_until_quit(self):
         ui = MockUIAdapter()
-        ui.queue_commands('r', 'r', 'q')
+        ui.queue_commands('0', 'r', 'r', 'q')  # '0' selects C Major scale
         audio = MockAudioAdapter()
         
         game = IntervalGame(ui, audio)
@@ -413,7 +413,7 @@ class TestIntervalGameConfigSetup:
 
     def test_config_setup_sets_scale(self):
         ui = MockUIAdapter()
-        ui.wait_for_selection = lambda items: "1"  # Select second scale (G Major)
+        ui.wait_for_selection = lambda items, use_enter_key=True: "1"  # Select second scale (G Major)
         game = IntervalGame(ui, MockAudioAdapter())
         
         game.config_setup()

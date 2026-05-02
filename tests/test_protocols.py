@@ -66,7 +66,7 @@ class TestMockAdapterCompliance:
             def on_event(self, event): pass
             def get_command(self): return None
             def wait_for_command(self): return 'q'
-            def wait_for_selection(self, items): return '0'
+            def wait_for_selection(self, items, use_enter_key=True): return '0'
             def init(self): pass
             def cleanup(self): pass
         
@@ -90,7 +90,7 @@ class TestMockAdapterCompliance:
                 events.append({"type": event.type.name, "data": event.data})
             def get_command(self): return None
             def wait_for_command(self): return 'q'
-            def wait_for_selection(self, items): return '0'
+            def wait_for_selection(self, items, use_enter_key=True): return '0'
             def init(self): pass
             def cleanup(self): pass
         

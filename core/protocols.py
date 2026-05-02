@@ -36,12 +36,15 @@ class UIAdapter(Protocol):
         """
         ...
     
-    def wait_for_selection(self, items: list[str]) -> str:
+    def wait_for_selection(self, items: list[str], use_enter_key: bool = True) -> str:
         """
         Blocking wait for user to select from a list.
         Args:
             items: List of items to select from
-        Returns the selected index as a string.
+            use_enter_key: If True, Enter selects and returns index.
+                          If False, Enter returns '\\n' and extra keys
+                          like 'd' and ' ' are available.
+        Returns the selected index as a string, or a command string.
         """
         ...
     
