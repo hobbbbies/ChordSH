@@ -51,6 +51,16 @@ class SoundDeviceAudioAdapter:
         # Current target note from engine
         self._target_note: str | None = None
         self._target_interval: str | None = None
+
+        # Raw recording buffer (for looper)
+        self._record_stream: sd.InputStream | None = None
+        self._record_buffer: list[np.ndarray] = []
+        self._recording_raw = False
+
+        # Playback (for looper)
+        self._playing = False
+        self._playback_stop = threading.Event()
+        self._playback_thread: threading.Thread | None = None
     
     # ---------- AudioAdapter Protocol ----------
     
@@ -168,6 +178,92 @@ class SoundDeviceAudioAdapter:
                 self._audio_queue.get_nowait()
             except queue.Empty:
                 break
+
+    # ---------- Raw Recording & Playback (Looper) ----------
+
+    def record_buffer(self) -> None:
+        """Start recording raw audio into an internal buffer."""
+        if self._recording_raw:
+            return
+
+        if self._samplerate is None:
+            device_info = sd.query_devices(self._device, 'input')
+            self._samplerate = int(device_info['default_samplerate'])
+
+        self._record_buffer = []
+        self._recording_raw = True
+
+        def callback(indata, frames, time, status):
+            if self._recording_raw:
+                self._record_buffer.append(indata.copy())
+
+        self._record_stream = sd.InputStream(
+            samplerate=self._samplerate,
+            device=self._device,
+            channels=self._channels,
+            callback=callback,
+        )
+        self._record_stream.start()
+
+    def stop_record_buffer(self) -> np.ndarray | None:
+        """Stop recording and return captured audio."""
+        self._recording_raw = False
+        if self._record_stream:
+            self._record_stream.stop()
+            self._record_stream.close()
+            self._record_stream = None
+
+        if not self._record_buffer:
+            return None
+
+        buf = np.concatenate(self._record_buffer)
+        self._record_buffer = []
+        return buf
+
+    def play_buffer(
+        self,
+        buffer: np.ndarray,
+        loop: bool = False,
+        on_loop: Callable[[], None] | None = None,
+    ) -> None:
+        """Play back audio, optionally looping until stop_playback()."""
+        self.stop_playback()
+        self._playback_stop.clear()
+        self._playing = True
+
+        def _playback():
+            try:
+                while not self._playback_stop.is_set():
+                    if on_loop:
+                        on_loop()
+                    sd.play(buffer, self._samplerate)
+                    # Wait for playback to finish or stop signal
+                    frames = len(buffer)
+                    duration = frames / self._samplerate
+                    self._playback_stop.wait(timeout=duration)
+                    sd.stop()
+                    if not loop:
+                        break
+            finally:
+                self._playing = False
+
+        self._playback_thread = threading.Thread(target=_playback, daemon=True)
+        self._playback_thread.start()
+
+    def stop_playback(self) -> None:
+        """Stop ongoing playback."""
+        self._playback_stop.set()
+        sd.stop()
+        if self._playback_thread:
+            self._playback_thread.join(timeout=1.0)
+            self._playback_thread = None
+        self._playing = False
+
+    def is_playing(self) -> bool:
+        """Check if currently playing back audio."""
+        return self._playing
+
+    # ---------- WAV Playback ----------
 
     def play_wav(self, filename: str | None) -> None:
         """Plays WAV file to speakers"""

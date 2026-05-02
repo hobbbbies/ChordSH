@@ -3,6 +3,7 @@ Abstract protocols that UI and Audio adapters must implement.
 These define the contract between the game engine and external systems.
 """
 from typing import Callable, Protocol
+import numpy as np
 from .events import GameEvent
 
 
@@ -35,9 +36,11 @@ class UIAdapter(Protocol):
         """
         ...
     
-    def wait_for_selection(self) -> str:
+    def wait_for_selection(self, items: list[str]) -> str:
         """
         Blocking wait for user to select from a list.
+        Args:
+            items: List of items to select from
         Returns the selected index as a string.
         """
         ...
@@ -77,4 +80,31 @@ class AudioAdapter(Protocol):
     
     def is_streaming(self) -> bool:
         """Check if currently streaming."""
+        ...
+
+    def record_buffer(self) -> None:
+        """Start recording raw audio into an internal buffer."""
+        ...
+
+    def stop_record_buffer(self) -> np.ndarray | None:
+        """
+        Stop recording and return the captured audio as a numpy array.
+        Returns None if nothing was recorded.
+        """
+        ...
+
+    def play_buffer(self, buffer: np.ndarray, loop: bool = False, on_loop: Callable[[], None] | None = None) -> None:
+        """
+        Play back a recorded audio buffer.
+        If loop=True, replay continuously until stop_playback() is called.
+        on_loop is called at the start of each loop iteration.
+        """
+        ...
+
+    def stop_playback(self) -> None:
+        """Stop any ongoing playback."""
+        ...
+
+    def is_playing(self) -> bool:
+        """Check if currently playing back audio."""
         ...

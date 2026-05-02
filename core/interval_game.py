@@ -23,6 +23,7 @@ class ScreenState(Enum):
 C_MAJOR_SCALE = ["C", "D", "E", "F", "G", "A", "B"]
 G_MAJOR_SCALE = ["G", "A", "B", "C", "D", "E", "F#"]
 scales = [C_MAJOR_SCALE, G_MAJOR_SCALE]
+SCALE_NAMES = ["C Major", "G Major"]
 # C_MAJOR_SCALE = ["B"]
 
 ROMAN_NUMERALS = ["I", "II", "III", "IV", "V", "VI", "VII"]
@@ -55,7 +56,7 @@ class IntervalGame:
         self._ui = ui
         self._audio = audio
         self._scale = scale or C_MAJOR_SCALE
-        self._scale_name = "C Major"  # Default scale name
+        self._scale_name = SCALE_NAMES[0] 
         
         self._running = False
         self._current_note: str | None = None
@@ -90,6 +91,7 @@ class IntervalGame:
         Blocking game loop. Returns when the player quits back to the
         master menu.
         """
+        self._emit(GameEvent.game_starting())
         self.start()
         self.menu_init()
         try:
@@ -130,7 +132,7 @@ class IntervalGame:
         Choose scale, choose speed, and auto vs manual mode.
         """
         self._emit(GameEvent.config_setup())
-        scale_selection = self._ui.wait_for_selection()
+        scale_selection = self._ui.wait_for_selection(SCALE_NAMES)
         if scale_selection == "q":
             self._running = False
             return

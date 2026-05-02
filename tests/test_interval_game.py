@@ -413,6 +413,7 @@ class TestIntervalGameConfigSetup:
 
     def test_config_setup_sets_scale(self):
         ui = MockUIAdapter()
+        ui.wait_for_selection = lambda items: "1"  # Select second scale (G Major)
         game = IntervalGame(ui, MockAudioAdapter())
         
         game.config_setup()

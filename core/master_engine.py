@@ -8,6 +8,7 @@ run as blocking calls and return control here when the player quits.
 from .events import GameEvent, EventType
 from .protocols import UIAdapter, AudioAdapter
 from .interval_game import IntervalGame
+from .looper_game import LooperGame
 
 
 class MasterEngine:
@@ -24,7 +25,7 @@ class MasterEngine:
         self._ui = ui
         self._audio = audio
         self._running = False
-        self._games: list[type] = [IntervalGame]
+        self._games: list[type] = [IntervalGame, LooperGame]
     
     def run(self) -> None:
         """
@@ -39,7 +40,7 @@ class MasterEngine:
                 game_names = [g.NAME for g in self._games]
                 self._ui.on_event(GameEvent.master_menu(game_names))
                 
-                selection = self._ui.wait_for_selection()
+                selection = self._ui.wait_for_selection(game_names)
                 
                 if selection == "q":
                     break

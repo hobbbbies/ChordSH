@@ -9,6 +9,7 @@ from typing import Any
 class EventType(Enum):
     """All possible game events."""
     # Game state
+    GAME_STARTING = auto()
     GAME_STARTED = auto()
     GAME_ENDED = auto()
     
@@ -36,6 +37,12 @@ class EventType(Enum):
 
     # Master menu
     MASTER_MENU = auto()
+
+    # Looper
+    LOOPER_RECORDING = auto()
+    LOOPER_STOPPED = auto()
+    LOOPER_PLAYING = auto()
+    LOOPER_STATUS = auto()
 
 
 @dataclass
@@ -76,10 +83,20 @@ class GameEvent:
         return cls(EventType.COUNTDOWN_FINISHED)
 
     @classmethod
+    def game_starting(cls) -> "GameEvent":
+        return cls(EventType.GAME_STARTING)
+
+    @classmethod
     def config_setup(cls) -> "GameEvent":
         return cls(EventType.CONFIG_SETUP, {"scales": ["C Major", "G Major"]})
 
     @classmethod
     def master_menu(cls, games: list[str]) -> "GameEvent":
         return cls(EventType.MASTER_MENU, {"games": games})
+
+    @classmethod
+    def looper_status(cls, state: str, duration: float = 0.0, loop_count: int = 0) -> "GameEvent":
+        return cls(EventType.LOOPER_STATUS, {
+            "state": state, "duration": duration, "loop_count": loop_count,
+        })
 

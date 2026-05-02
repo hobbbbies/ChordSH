@@ -36,8 +36,8 @@ class MockUIAdapter:
             return cmd
         return 'q'  # Default to quit to prevent infinite loop
 
-    def wait_for_selection(self) -> str:
-        return '1'
+    def wait_for_selection(self, items: list[str]) -> str:
+        return '0'  # Return first item by default
     
     def init(self) -> None:
         self.initialized = True
@@ -81,3 +81,30 @@ class MockAudioAdapter:
     def simulate_detection(self, note: str, freq: float, chord_name: str | None = None) -> None:
         if self._on_result:
             self._on_result(note, freq, chord_name)
+
+    # Looper support
+    def record_buffer(self) -> None:
+        self._recording_raw = True
+        self.record_buffer_count = getattr(self, 'record_buffer_count', 0) + 1
+
+    def stop_record_buffer(self):
+        self._recording_raw = False
+        self.stop_record_buffer_count = getattr(self, 'stop_record_buffer_count', 0) + 1
+        return getattr(self, '_fake_buffer', None)
+
+    def play_buffer(self, buffer, loop=False, on_loop=None) -> None:
+        self._playing = True
+        self._play_loop = loop
+        self._play_on_loop = on_loop
+        self.play_buffer_count = getattr(self, 'play_buffer_count', 0) + 1
+
+    def stop_playback(self) -> None:
+        self._playing = False
+        self.stop_playback_count = getattr(self, 'stop_playback_count', 0) + 1
+
+    def is_playing(self) -> bool:
+        return getattr(self, '_playing', False)
+
+    def set_fake_buffer(self, buf) -> None:
+        """Set a fake buffer to be returned by stop_record_buffer."""
+        self._fake_buffer = buf

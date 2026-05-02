@@ -7,7 +7,7 @@ class TestMasterEngineIntegration:
     def test_master_engine_run_and_quit(self):
         ui = MockUIAdapter()
         audio = MockAudioAdapter()
-        ui.wait_for_selection = lambda: "q"
+        ui.wait_for_selection = lambda items: "q"
         engine = MasterEngine(ui, audio)
         engine.run()
         assert engine._running is False

@@ -1,6 +1,7 @@
 # Core game engine and protocols
 from .engine import GameEngine  # backwards compat alias for IntervalGame
 from .interval_game import IntervalGame
+from .looper_game import LooperGame
 from .master_engine import MasterEngine
 from .protocols import UIAdapter, AudioAdapter
 from .events import GameEvent, EventType
