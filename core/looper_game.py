@@ -19,6 +19,7 @@ class LooperTrack:
     buffer: np.ndarray
     duration: float
     loop_count: int = 0
+    playback_id: int | None = None
 
 
 class LooperState(Enum):
@@ -59,7 +60,6 @@ class LooperGame:
         self._tracks: list[LooperTrack] = []
         self._record_start_time: float = 0.0
         self._event_listeners: list[Callable[[GameEvent], None]] = []
-        self._playing_track_idx: int | None = None
 
     # ---------- Public API ----------
 
@@ -100,7 +100,7 @@ class LooperGame:
             return ["(no tracks yet)"]
         items = []
         for i, track in enumerate(self._tracks):
-            playing = " [playing]" if i == self._playing_track_idx else ""
+            playing = " [playing]" if track.playback_id is not None else ""
             items.append(f"Track {i + 1}: {track.duration:.1f}s{playing}")
         return items
 
@@ -138,7 +138,7 @@ class LooperGame:
 
     def _start_recording(self) -> None:
         if self._state == LooperState.PLAYING:
-            self._stop_playback()
+            self._stop_all_playback()
 
         self._state = LooperState.RECORDING
         self._record_start_time = time.time()
@@ -152,33 +152,47 @@ class LooperGame:
             self._tracks.append(LooperTrack(buffer=buf, duration=duration))
             self._state = LooperState.PAUSED
             self._emit(GameEvent(EventType.LOOPER_STOPPED))
+            self._play_all_tracks()
         else:
             self._state = LooperState.IDLE
 
     # ---------- Playback ----------
 
+    def _play_all_tracks(self) -> None:
+        if not self._tracks:
+            return
+        for track in self._tracks:
+            if track.playback_id is None:
+                self._play_track(track)
+
     def _toggle_playback(self, idx: int) -> None:
         if not self._tracks or idx >= len(self._tracks):
             return
-        if self._state == LooperState.PLAYING and self._playing_track_idx == idx:
-            self._stop_playback()
-        else:
-            if self._state == LooperState.PLAYING:
-                self._audio.stop_playback()
-            self._play_track(idx)
-
-    def _play_track(self, idx: int) -> None:
         track = self._tracks[idx]
-        self._state = LooperState.PLAYING
-        self._playing_track_idx = idx
+        if track.playback_id is not None:
+            self._stop_track(track)
+        else:
+            self._play_track(track)
+
+    def _play_track(self, track: LooperTrack) -> None:
         track.loop_count = 0
-        self._audio.play_buffer(track.buffer, loop=True)
+        track.playback_id = self._audio.play_buffer(track.buffer, loop=True)
+        self._state = LooperState.PLAYING
         self._emit(GameEvent(EventType.LOOPER_PLAYING))
 
-    def _stop_playback(self) -> None:
+    def _stop_track(self, track: LooperTrack) -> None:
+        if track.playback_id is not None:
+            self._audio.stop_playback(track.playback_id)
+            track.playback_id = None
+        if not any(t.playback_id is not None for t in self._tracks):
+            self._state = LooperState.PAUSED
+            self._emit(GameEvent(EventType.LOOPER_STOPPED))
+
+    def _stop_all_playback(self) -> None:
         self._audio.stop_playback()
+        for track in self._tracks:
+            track.playback_id = None
         self._state = LooperState.PAUSED
-        self._playing_track_idx = None
         self._emit(GameEvent(EventType.LOOPER_STOPPED))
 
     # ---------- Track Management ----------
@@ -186,10 +200,9 @@ class LooperGame:
     def _delete_track(self, idx: int) -> None:
         if not self._tracks or idx >= len(self._tracks):
             return
-        if self._state == LooperState.PLAYING and self._playing_track_idx == idx:
-            self._stop_playback()
-        elif self._playing_track_idx is not None and idx < self._playing_track_idx:
-            self._playing_track_idx -= 1
+        track = self._tracks[idx]
+        if track.playback_id is not None:
+            self._stop_track(track)
         del self._tracks[idx]
         if not self._tracks:
             self._state = LooperState.IDLE
@@ -207,5 +220,5 @@ class LooperGame:
         if self._state == LooperState.RECORDING:
             self._audio.stop_record_buffer()
         if self._state == LooperState.PLAYING:
-            self._audio.stop_playback()
+            self._stop_all_playback()
         self._state = LooperState.IDLE

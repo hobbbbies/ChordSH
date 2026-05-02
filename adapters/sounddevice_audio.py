@@ -57,10 +57,10 @@ class SoundDeviceAudioAdapter:
         self._record_buffer: list[np.ndarray] = []
         self._recording_raw = False
 
-        # Playback (for looper)
-        self._playing = False
-        self._playback_stop = threading.Event()
-        self._playback_thread: threading.Thread | None = None
+        # Playback (for looper) — multiple concurrent streams
+        self._next_playback_id = 0
+        self._playbacks: dict[int, tuple[threading.Thread, threading.Event]] = {}
+        self._playbacks_lock = threading.Lock()
     
     # ---------- AudioAdapter Protocol ----------
     
@@ -225,43 +225,66 @@ class SoundDeviceAudioAdapter:
         buffer: np.ndarray,
         loop: bool = False,
         on_loop: Callable[[], None] | None = None,
-    ) -> None:
-        """Play back audio, optionally looping until stop_playback()."""
-        self.stop_playback()
-        self._playback_stop.clear()
-        self._playing = True
+    ) -> int:
+        """Play back audio, optionally looping. Returns a playback_id."""
+        stop_event = threading.Event()
+
+        with self._playbacks_lock:
+            playback_id = self._next_playback_id
+            self._next_playback_id += 1
 
         def _playback():
             try:
-                while not self._playback_stop.is_set():
-                    if on_loop:
-                        on_loop()
-                    sd.play(buffer, self._samplerate)
-                    # Wait for playback to finish or stop signal
-                    frames = len(buffer)
-                    duration = frames / self._samplerate
-                    self._playback_stop.wait(timeout=duration)
-                    sd.stop()
-                    if not loop:
-                        break
+                # Each concurrent playback uses its own OutputStream
+                out_stream = sd.OutputStream(
+                    samplerate=self._samplerate,
+                    channels=buffer.shape[1] if buffer.ndim > 1 else 1,
+                    dtype=buffer.dtype,
+                )
+                out_stream.start()
+                try:
+                    while not stop_event.is_set():
+                        if on_loop:
+                            on_loop()
+                        # Write buffer to this stream
+                        out_stream.write(buffer)
+                        if not loop:
+                            break
+                finally:
+                    out_stream.stop()
+                    out_stream.close()
             finally:
-                self._playing = False
+                with self._playbacks_lock:
+                    self._playbacks.pop(playback_id, None)
 
-        self._playback_thread = threading.Thread(target=_playback, daemon=True)
-        self._playback_thread.start()
+        thread = threading.Thread(target=_playback, daemon=True)
+        with self._playbacks_lock:
+            self._playbacks[playback_id] = (thread, stop_event)
+        thread.start()
+        return playback_id
 
-    def stop_playback(self) -> None:
-        """Stop ongoing playback."""
-        self._playback_stop.set()
-        sd.stop()
-        if self._playback_thread:
-            self._playback_thread.join(timeout=1.0)
-            self._playback_thread = None
-        self._playing = False
+    def stop_playback(self, playback_id: int | None = None) -> None:
+        """Stop a specific playback by ID, or all if None."""
+        with self._playbacks_lock:
+            if playback_id is not None:
+                entry = self._playbacks.get(playback_id)
+                if entry:
+                    entries = [(playback_id, entry)]
+                else:
+                    entries = []
+            else:
+                entries = list(self._playbacks.items())
+
+        for pid, (thread, stop_event) in entries:
+            stop_event.set()
+            thread.join(timeout=1.0)
+            with self._playbacks_lock:
+                self._playbacks.pop(pid, None)
 
     def is_playing(self) -> bool:
-        """Check if currently playing back audio."""
-        return self._playing
+        """Check if any playback is currently active."""
+        with self._playbacks_lock:
+            return len(self._playbacks) > 0
 
     # ---------- WAV Playback ----------
 

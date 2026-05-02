@@ -49,9 +49,9 @@ class TestLooperGameRecording:
         game._start_recording()
         game._stop_recording()
 
-        assert game.state == LooperState.PAUSED
+        assert game.state == LooperState.PLAYING  # _play_all_tracks auto-starts
         assert len(game.tracks) == 1
-        assert any(e.type == EventType.LOOPER_STOPPED for e in ui.events)
+        assert game.tracks[0].playback_id is not None
 
     def test_recording_with_no_audio_goes_idle(self):
         ui = MockUIAdapter()
@@ -74,7 +74,7 @@ class TestLooperGameRecording:
 
         game._start_recording()
         game._stop_recording()
-        game._play_track(0)
+        game._play_track(game.tracks[0])
         game._start_recording()
 
         assert game.state == LooperState.RECORDING
@@ -91,11 +91,14 @@ class TestLooperGamePlayback:
 
         game._start_recording()
         game._stop_recording()
-        game._play_track(0)
+        # _play_all_tracks is called by _stop_recording, so tracks are already playing
+        # Reset for explicit test
+        game._stop_all_playback()
+        ui.events.clear()
+        game._play_track(game.tracks[0])
 
         assert game.state == LooperState.PLAYING
-        assert game._playing_track_idx == 0
-        assert audio.play_buffer_count == 1
+        assert game.tracks[0].playback_id is not None
         assert any(e.type == EventType.LOOPER_PLAYING for e in ui.events)
 
     def test_toggle_playback_stops_same_track(self):
@@ -107,14 +110,29 @@ class TestLooperGamePlayback:
 
         game._start_recording()
         game._stop_recording()
-        game._toggle_playback(0)
+        # _play_all_tracks already played it, toggle to stop
         game._toggle_playback(0)
 
         assert game.state == LooperState.PAUSED
-        assert game._playing_track_idx is None
+        assert game.tracks[0].playback_id is None
         assert audio.stop_playback_count >= 1
 
-    def test_toggle_playback_switches_track(self):
+    def test_toggle_plays_stopped_track(self):
+        ui = MockUIAdapter()
+        audio = MockAudioAdapter()
+        audio.set_fake_buffer(FAKE_AUDIO)
+        game = LooperGame(ui, audio)
+        game._running = True
+
+        game._start_recording()
+        game._stop_recording()
+        game._toggle_playback(0)  # stop
+        game._toggle_playback(0)  # restart
+
+        assert game.state == LooperState.PLAYING
+        assert game.tracks[0].playback_id is not None
+
+    def test_concurrent_playback(self):
         ui = MockUIAdapter()
         audio = MockAudioAdapter()
         audio.set_fake_buffer(FAKE_AUDIO)
@@ -125,12 +143,12 @@ class TestLooperGamePlayback:
         game._stop_recording()
         game._start_recording()
         game._stop_recording()
-        game._toggle_playback(0)
-        game._toggle_playback(1)
 
+        # Both tracks should be playing after _play_all_tracks
         assert game.state == LooperState.PLAYING
-        assert game._playing_track_idx == 1
-        assert audio.play_buffer_count == 2
+        assert game.tracks[0].playback_id is not None
+        assert game.tracks[1].playback_id is not None
+        assert audio.is_playing()
 
     def test_toggle_on_empty_does_nothing(self):
         ui = MockUIAdapter()
@@ -151,7 +169,7 @@ class TestLooperGamePlayback:
 
         game._start_recording()
         game._stop_recording()
-        game._play_track(0)
+        # _play_all_tracks already played with loop=True
 
         assert audio._play_loop is True
 
@@ -180,13 +198,13 @@ class TestLooperGameTrackManagement:
 
         game._start_recording()
         game._stop_recording()
-        game._play_track(0)
+        # Track is already playing from _play_all_tracks
         game._delete_track(0)
 
         assert game.state == LooperState.IDLE
         assert audio.stop_playback_count >= 1
 
-    def test_delete_before_playing_adjusts_index(self):
+    def test_delete_non_playing_track_keeps_state(self):
         ui = MockUIAdapter()
         audio = MockAudioAdapter()
         audio.set_fake_buffer(FAKE_AUDIO)
@@ -197,11 +215,11 @@ class TestLooperGameTrackManagement:
         game._stop_recording()
         game._start_recording()
         game._stop_recording()
-        game._play_track(1)
-        game._delete_track(0)
+        game._toggle_playback(0)  # stop track 0
+        game._delete_track(0)     # delete stopped track
 
-        assert game._playing_track_idx == 0
         assert len(game.tracks) == 1
+        assert game.state == LooperState.PLAYING  # track 1 still playing
 
     def test_delete_out_of_range_does_nothing(self):
         ui = MockUIAdapter()
@@ -257,7 +275,7 @@ class TestLooperGameMultipleTracks:
 
         game._start_recording()
         game._stop_recording()
-        game._play_track(0)
+        # _play_all_tracks already set it playing
 
         items = game._format_track_list()
         assert "[playing]" in items[0]
@@ -347,7 +365,7 @@ class TestLooperGameCleanup:
 
         game._start_recording()
         game._stop_recording()
-        game._play_track(0)
+        # Track is playing from _play_all_tracks
         game._cleanup()
 
         assert game.state == LooperState.IDLE

@@ -96,18 +96,30 @@ class MockAudioAdapter:
         self.stop_record_buffer_count = getattr(self, 'stop_record_buffer_count', 0) + 1
         return getattr(self, '_fake_buffer', None)
 
-    def play_buffer(self, buffer, loop=False, on_loop=None) -> None:
-        self._playing = True
+    def play_buffer(self, buffer, loop=False, on_loop=None) -> int:
         self._play_loop = loop
         self._play_on_loop = on_loop
         self.play_buffer_count = getattr(self, 'play_buffer_count', 0) + 1
+        playback_id = getattr(self, '_next_playback_id', 0)
+        self._next_playback_id = playback_id + 1
+        if not hasattr(self, '_active_playbacks'):
+            self._active_playbacks = set()
+        self._active_playbacks.add(playback_id)
+        return playback_id
 
-    def stop_playback(self) -> None:
-        self._playing = False
+    def stop_playback(self, playback_id: int | None = None) -> None:
         self.stop_playback_count = getattr(self, 'stop_playback_count', 0) + 1
+        if not hasattr(self, '_active_playbacks'):
+            self._active_playbacks = set()
+        if playback_id is not None:
+            self._active_playbacks.discard(playback_id)
+        else:
+            self._active_playbacks.clear()
 
     def is_playing(self) -> bool:
-        return getattr(self, '_playing', False)
+        if not hasattr(self, '_active_playbacks'):
+            return False
+        return len(self._active_playbacks) > 0
 
     def set_fake_buffer(self, buf) -> None:
         """Set a fake buffer to be returned by stop_record_buffer."""

@@ -96,18 +96,19 @@ class AudioAdapter(Protocol):
         """
         ...
 
-    def play_buffer(self, buffer: np.ndarray, loop: bool = False, on_loop: Callable[[], None] | None = None) -> None:
+    def play_buffer(self, buffer: np.ndarray, loop: bool = False, on_loop: Callable[[], None] | None = None) -> int:
         """
         Play back a recorded audio buffer.
         If loop=True, replay continuously until stop_playback() is called.
         on_loop is called at the start of each loop iteration.
+        Returns a playback_id handle that can be passed to stop_playback.
         """
         ...
 
-    def stop_playback(self) -> None:
-        """Stop any ongoing playback."""
+    def stop_playback(self, playback_id: int | None = None) -> None:
+        """Stop ongoing playback. If playback_id is None, stop all."""
         ...
 
     def is_playing(self) -> bool:
-        """Check if currently playing back audio."""
+        """Check if any playback is currently active."""
         ...
