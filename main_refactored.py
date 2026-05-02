@@ -8,7 +8,7 @@ import argparse
 import curses
 import sounddevice as sd
 
-from core import GameEngine
+from core import MasterEngine
 from adapters import CursesUIAdapter, SoundDeviceAudioAdapter
 
 
@@ -60,8 +60,8 @@ def main(stdscr):
         channels=args.channels,
     )
     
-    # Create and run engine
-    engine = GameEngine(ui, audio)
+    # Create and run master engine (handles menu + game selection)
+    engine = MasterEngine(ui, audio)
     engine.run()
 
 

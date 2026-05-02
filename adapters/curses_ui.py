@@ -51,6 +51,7 @@ class CursesUIAdapter:
             EventType.COUNTDOWN_STARTED: self._handle_countdown_started,
             EventType.COUNTDOWN_FINISHED: self._handle_countdown_finished,
             EventType.CONFIG_SETUP: self._handle_config_setup,
+            EventType.MASTER_MENU: self._handle_master_menu,
         }
         handler = handlers.get(event.type)
         if handler:
@@ -107,7 +108,7 @@ class CursesUIAdapter:
             elif key in (curses.KEY_ENTER, 10, 13):  # Enter key
                 return str(selected_idx)
             elif key == ord('q'):
-                return "0"  # Default to first option if quit:
+                return "q"
     
     # ---------- Event Handlers ----------
     
@@ -170,6 +171,16 @@ class CursesUIAdapter:
         self._stdscr.move(0, 0)
         self._stdscr.clrtoeol()
         self._stdscr.refresh()
+
+    def _handle_master_menu(self, data: dict[str, Any] | None) -> None:
+        if data:
+            self._selection_items = data.get("games", [])
+            self._stdscr.clear()
+            self._message("=== ChordSH ===", 0)
+            self._message("Select a game (↑/↓, Enter to select, q to quit):", 1)
+            for i, game in enumerate(self._selection_items):
+                self._stdscr.addstr(i + 2, 2, f"  {i + 1}. {game}")
+            self._stdscr.refresh()
 
     def _handle_config_setup(self, data: dict[str, Any] | None) -> None:
         if data:

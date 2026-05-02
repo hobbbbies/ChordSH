@@ -34,6 +34,9 @@ class EventType(Enum):
     COUNTDOWN_FINISHED = auto()
     CONFIG_SETUP = auto()
 
+    # Master menu
+    MASTER_MENU = auto()
+
 
 @dataclass
 class GameEvent:
@@ -75,4 +78,8 @@ class GameEvent:
     @classmethod
     def config_setup(cls) -> "GameEvent":
         return cls(EventType.CONFIG_SETUP, {"scales": ["C Major", "G Major"]})
+
+    @classmethod
+    def master_menu(cls, games: list[str]) -> "GameEvent":
+        return cls(EventType.MASTER_MENU, {"games": games})
 

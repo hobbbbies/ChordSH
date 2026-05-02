@@ -2,6 +2,13 @@
   "version": "0.2.0",
   "configurations": [
     {
+      "name": "Python Debugger: Current File",
+      "type": "debugpy",
+      "request": "launch",
+      "program": "${file}",
+      "console": "integratedTerminal"
+    },
+    {
       "name": "Python: ChordSH (refactored)",
       "type": "debugpy",
       "request": "launch",
@@ -29,10 +36,7 @@
       "console": "integratedTerminal",
       "justMyCode": true,
       "cwd": "${workspaceFolder}",
-      "args": [
-        "tests",
-        "-v"
-      ]
+      "args": ["tests", "-v"]
     },
     {
       "name": "Python: pytest (unit tests only)",
@@ -44,7 +48,8 @@
       "cwd": "${workspaceFolder}",
       "args": [
         "tests",
-        "--ignore=tests/test_integration.py",
+        "--ignore=tests/test_interval_game_integration.py",
+        "--ignore=tests/test_master_engine_integration.py",
         "-v"
       ]
     },
@@ -57,7 +62,8 @@
       "justMyCode": true,
       "cwd": "${workspaceFolder}",
       "args": [
-        "tests/test_integration.py",
+        "tests/test_interval_game_integration.py",
+        "tests/test_master_engine_integration.py",
         "-v"
       ]
     }
