@@ -136,6 +136,10 @@ class GameEngine:
             'r': Toggle recording/streaming
             'q': Quit game
         """
+        #TODO: Why does the code under this show unreachable
+        if cmd != 'q' and cmd != 'r':
+            return
+        
         cmd = cmd.lower()
         
         if cmd == 'q':
@@ -177,11 +181,22 @@ class GameEngine:
             listener(event)
     
     def end_round(self) -> None:
-        """End the current round and show score."""
+        """
+        End the current round and show score.
+        If user quits again, they're taken to main menu
+        """
         self._in_round = False
         self._stop_recording()
         self._emit(GameEvent(EventType.GAME_ENDED, {"score": self._score}))
         self._emit(GameEvent.message("Press 'r' to restart or 'q' to quit", row=1))
+        # Wait for command
+        cmd = self._ui.wait_for_command
+        if cmd == 'q': 
+            #TODO: Make this correctly return to start menu 
+            engine.stop()
+            engine.run()
+        elif cmd == 'r':
+            self.handle_command(cmd)
     
     def _interruptible_sleep(self, duration: float) -> None:
         """Sleep while still checking for user input to allow early exit."""

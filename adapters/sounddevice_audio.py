@@ -6,11 +6,13 @@ import threading
 from collections import deque
 from typing import Callable
 import numpy as np
+from numpy.f2py.auxfuncs import throw_error
 import sounddevice as sd
 import soundfile as sf
 from analyze import analyze_buffer
 from core.events import GameEvent, EventType
 from pathlib import Path
+import traceback
 
 WINDOW_SECONDS = 2.0
 MIN_DETECTION_COUNT = 5
@@ -155,10 +157,9 @@ class SoundDeviceAudioAdapter:
                     except (ValueError, ZeroDivisionError):
                         pass  # Not enough signal, non catastrophic
         except Exception:
-            import traceback
             traceback.print_exc()
         finally:
-            self._streaming = False
+            self.stop_stream()
     
     def _drain_queue(self) -> None:
         """Clear any stale audio data."""
@@ -170,11 +171,16 @@ class SoundDeviceAudioAdapter:
 
     def play_wav(self, filename: str | None) -> None:
         """Plays WAV file to speakers"""
-        root_wav = Path(__file__).parent.parent / "assets" / "root.wav"
-        data, fs = sf.read(root_wav)
-        sd.play(data, fs)
-        sd.wait()
-        if filename is not None:
-            data, fs = sf.read(filename)
+        try:
+            root_wav = Path(__file__).parent.parent / "assets" / "root.wav"
+            data, fs = sf.read(root_wav)
             sd.play(data, fs)
             sd.wait()
+            if filename is not None:
+                data, fs = sf.read(filename)
+                sd.play(data, fs)
+                sd.wait()
+        except Exception:
+            self.stop_stream()        
+            raise FileNotFoundError
+            

@@ -4,6 +4,7 @@ import pytest
 from unittest.mock import Mock, MagicMock, patch
 from pathlib import Path
 import numpy as np
+from unittest.mock import patch
 
 from core.events import GameEvent, EventType
 
@@ -227,6 +228,34 @@ class TestSoundDeviceAudioAdapterIntegration:
         adapter.play_wav(wav_path)
         assert 1 == 1
 
-# class TestPlayWav:
+    @patch('sounddevice.wait')
+    @patch('sounddevice.play')
+    def test_play_wav_plays_two_files(self, mock_play, mock_wait, adapter):
+        wav_path = Path(__file__).parent / "assets" / "input_pu2oefzt.wav"
+        adapter._streaming = True
+        adapter.play_wav(wav_path)
+        assert mock_play.call_count == 2
+        assert adapter.is_streaming() == True
+
+    @patch('sounddevice.wait')
+    @patch('sounddevice.play')
+    def test_play_wav_no_args_plays_one_file(self, mock_play, mock_wait, adapter):
+        adapter._streaming = True
+        adapter.play_wav(None)
+        assert mock_play.call_count == 1
+        assert adapter._streaming == True
+
+    @patch('sounddevice.wait')
+    @patch('sounddevice.play')
+    def test_play_wav_stops_streaming_on_error(self, mock_play, mock_wait, adapter):
+        adapter._streaming = True
+        false_path = "12345"
+        with pytest.raises(FileNotFoundError):
+            adapter.play_wav(false_path)
+        assert adapter.is_streaming() == False
+
+    
+
+
     
 
