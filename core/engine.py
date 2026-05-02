@@ -3,9 +3,17 @@ Core game engine - pure logic, no UI dependencies.
 """
 import random
 import time
+from enum import Enum, auto
 from typing import Callable
 from .events import GameEvent, EventType
 from .protocols import UIAdapter, AudioAdapter
+
+
+class ScreenState(Enum):
+    """Tracks which screen the user is currently viewing."""
+    MENU = auto()
+    GAME = auto()
+    POST_ROUND = auto()
 
 
 C_MAJOR_SCALE = ["C", "D", "E", "F", "G", "A", "B"]
@@ -53,6 +61,7 @@ class GameEngine:
         self._round_resolved = False
         self._pending_next_round = False
         self._in_round = False
+        self._screen_state = ScreenState.MENU
         
         # Optional event listeners for custom integrations
         self._event_listeners: list[Callable[[GameEvent], None]] = []
@@ -84,10 +93,17 @@ class GameEngine:
         For web/async, use start() + handle_command() + stop() instead.
         """
         self.start()
-        self.config_setup()
-        self.start_game()
+        self.menu_init()
         try:
             while self._running:
+                # Handle screen state transitions
+                if self._screen_state == ScreenState.POST_ROUND:
+                    self._emit(GameEvent(EventType.GAME_ENDED, {"score": self._score}))
+                    self._emit(GameEvent.message("Press 'r' to restart or 'q' to quit", row=1))
+                    cmd = self._ui.wait_for_command()
+                    self.handle_command(cmd)
+                    continue
+                
                 # Handle pending round transition
                 if self._pending_next_round:
                     self._pending_next_round = False
@@ -125,8 +141,13 @@ class GameEngine:
         """
         Start the game.
         """
+        self._screen_state = ScreenState.MENU
         self._emit(GameEvent(EventType.GAME_STARTED))
         self._emit(GameEvent.message("Press 'r' to start recording, 'q' to quit"))
+    
+    def menu_init(self) -> None:
+        self.config_setup()
+        self.start_game()
     
     def handle_command(self, cmd: str) -> None:
         """
@@ -136,23 +157,35 @@ class GameEngine:
             'r': Toggle recording/streaming
             'q': Quit game
         """
-        #TODO: Why does the code under this show unreachable
         if cmd != 'q' and cmd != 'r':
             return
         
         cmd = cmd.lower()
         
-        if cmd == 'q':
-            if self._in_round:
-                self.end_round()
-            else:
-                self.stop()
-            
-        elif cmd == 'r':
-            if self._in_round:
-                self.end_round()
-            else:
+        if self._screen_state == ScreenState.POST_ROUND:
+            if cmd == 'r':
+                self._score = 0
+                self._screen_state = ScreenState.GAME
                 self._start_recording()
+            elif cmd == 'q':
+                self.menu_init()
+        
+        elif self._screen_state == ScreenState.MENU:
+            if cmd == 'q':
+                self.stop()
+            elif cmd == 'r':
+                self._screen_state = ScreenState.GAME
+                self._start_recording()
+        
+        elif self._screen_state == ScreenState.GAME:
+            if cmd == 'q':
+                if self._in_round:
+                    self.end_round()
+                else:
+                    self.stop()
+            elif cmd == 'r':
+                if self._in_round:
+                    self.end_round()
     
     def add_event_listener(self, callback: Callable[[GameEvent], None]) -> None:
         """Register a callback to receive all game events."""
@@ -182,21 +215,11 @@ class GameEngine:
     
     def end_round(self) -> None:
         """
-        End the current round and show score.
-        If user quits again, they're taken to main menu
+        End the current round and transition to post-round screen.
         """
         self._in_round = False
         self._stop_recording()
-        self._emit(GameEvent(EventType.GAME_ENDED, {"score": self._score}))
-        self._emit(GameEvent.message("Press 'r' to restart or 'q' to quit", row=1))
-        # Wait for command
-        cmd = self._ui.wait_for_command
-        if cmd == 'q': 
-            #TODO: Make this correctly return to start menu 
-            engine.stop()
-            engine.run()
-        elif cmd == 'r':
-            self.handle_command(cmd)
+        self._screen_state = ScreenState.POST_ROUND
     
     def _interruptible_sleep(self, duration: float) -> None:
         """Sleep while still checking for user input to allow early exit."""
