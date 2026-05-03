@@ -79,6 +79,10 @@ class CursesUIAdapter:
         key = self._stdscr.getch()
         return chr(key)
     
+    def inject_command(self, cmd: str) -> None:
+        """Inject a command into curses input buffer."""
+        curses.ungetch(ord(cmd[0]))
+
     def wait_for_selection(self, items: list[str], use_enter_key = True) -> str:
         """Blocking wait for user to select from a list using arrow keys."""
         if not items:

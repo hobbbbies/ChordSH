@@ -56,6 +56,13 @@ class UIAdapter(Protocol):
         """Clean up resources (restore terminal, close connections, etc.)."""
         ...
 
+    def inject_command(self, cmd: str) -> None:
+        """
+        Inject a command as if the user typed it.
+        Used by external input sources (e.g. Arduino trigger).
+        """
+        ...
+
 
 class AudioAdapter(Protocol):
     """

@@ -44,6 +44,9 @@ def parse_args():
     parser.add_argument(
         '-c', '--channels', type=int, default=1,
         help='number of input channels')
+    parser.add_argument(
+        '-t', '--trigger-port', type=str, default=None,
+        help='serial port for Arduino trigger (e.g. /dev/cu.usbmodem1101)')
     
     return parser.parse_args(remaining)
 
@@ -60,9 +63,20 @@ def main(stdscr):
         channels=args.channels,
     )
     
+    # Optional: Arduino trigger (injects Enter key via serial)
+    trigger = None
+    if args.trigger_port:
+        from adapters.trigger import SerialTrigger
+        trigger = SerialTrigger(ui, port=args.trigger_port)
+        trigger.start()
+
     # Create and run master engine (handles menu + game selection)
-    engine = MasterEngine(ui, audio)
-    engine.run()
+    try:
+        engine = MasterEngine(ui, audio)
+        engine.run()
+    finally:
+        if trigger:
+            trigger.stop()
 
 
 if __name__ == "__main__":

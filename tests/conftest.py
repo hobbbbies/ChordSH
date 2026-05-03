@@ -49,6 +49,9 @@ class MockUIAdapter:
     def cleanup(self) -> None:
         self.cleaned_up = True
     
+    def inject_command(self, cmd: str) -> None:
+        self.commands.insert(self._command_index, cmd)
+
     def queue_commands(self, *cmds: str) -> None:
         self.commands.extend(cmds)
     

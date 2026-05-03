@@ -67,6 +67,7 @@ class TestMockAdapterCompliance:
             def get_command(self): return None
             def wait_for_command(self): return 'q'
             def wait_for_selection(self, items, use_enter_key=True): return '0'
+            def inject_command(self, cmd): pass
             def init(self): pass
             def cleanup(self): pass
         
@@ -91,6 +92,7 @@ class TestMockAdapterCompliance:
             def get_command(self): return None
             def wait_for_command(self): return 'q'
             def wait_for_selection(self, items, use_enter_key=True): return '0'
+            def inject_command(self, cmd): pass
             def init(self): pass
             def cleanup(self): pass
         
