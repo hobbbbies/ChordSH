@@ -4,3 +4,4 @@ sounddevice
 sounddfile
 pytest>=8.0.0
 pytest-cov
+pyserial

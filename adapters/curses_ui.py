@@ -2,6 +2,7 @@
 Curses-based UI adapter implementation.
 """
 import curses
+import queue
 from typing import Any
 from core.events import GameEvent, EventType
 
@@ -15,6 +16,7 @@ class CursesUIAdapter:
     
     def __init__(self, stdscr: "curses.window"):
         self._stdscr = stdscr
+        self._inject_queue: queue.Queue[int] = queue.Queue()
     
     # ---------- UIAdapter Protocol ----------
     
@@ -65,7 +67,7 @@ class CursesUIAdapter:
         """Non-blocking input check."""
         self._stdscr.nodelay(True)
         try:
-            key = self._stdscr.getch()
+            key = self._getch_or_inject()
             if key == -1:
                 return None
             return chr(key)
@@ -76,12 +78,12 @@ class CursesUIAdapter:
     
     def wait_for_command(self) -> str:
         """Blocking wait for user input."""
-        key = self._stdscr.getch()
+        key = self._getch_or_inject()
         return chr(key)
     
     def inject_command(self, cmd: str) -> None:
-        """Inject a command into curses input buffer."""
-        curses.ungetch(ord(cmd[0]))
+        """Inject a command from another thread (thread-safe)."""
+        self._inject_queue.put(ord(cmd[0]))
 
     def wait_for_selection(self, items: list[str], use_enter_key = True) -> str:
         """Blocking wait for user to select from a list using arrow keys."""
@@ -106,14 +108,15 @@ class CursesUIAdapter:
             
             self._stdscr.refresh()
             
-            # Get key input
-            key = self._stdscr.getch()
+            # Get key input (from keyboard or injected queue)
+            key = self._getch_or_inject()
             
             if key == curses.KEY_UP:
                 selected_idx = max(0, selected_idx - 1)
             elif key == curses.KEY_DOWN:
                 selected_idx = min(len(items) - 1, selected_idx + 1)
             elif key in (curses.KEY_ENTER, 10, 13):  # Enter key
+                self._debug("pressing enter")
                 if use_enter_key:
                     return str(selected_idx)
                 else:
@@ -230,6 +233,24 @@ class CursesUIAdapter:
             self._stdscr.refresh()
     
     
+    # ---------- Input Helpers ----------
+
+    def _getch_or_inject(self) -> int:
+        """Blocking read from either curses or the inject queue."""
+        self._stdscr.nodelay(True)
+        try:
+            while True:
+                try:
+                    return self._inject_queue.get_nowait()
+                except queue.Empty:
+                    pass
+                key = self._stdscr.getch()
+                if key != -1:
+                    return key
+                curses.napms(20)
+        finally:
+            self._stdscr.nodelay(False)
+    
     # ---------- Rendering Helpers ----------
     
     def _message(self, msg: str, row: int) -> None:
@@ -240,9 +261,9 @@ class CursesUIAdapter:
         self._stdscr.refresh()
 
     def _debug(self, msg: str) -> None:
-        """Display debug message."""
-        _, max_x = self._stdscr.getmaxyx()
-        debug_row = 4
+        """Display debug message at the bottom of the screen."""
+        max_y, max_x = self._stdscr.getmaxyx()
+        debug_row = max_y - 1
         self._stdscr.move(debug_row, 0)
         self._stdscr.clrtoeol()
         self._stdscr.addstr(debug_row, 0, f"DEBUG: {msg}"[:max_x - 1])
