@@ -65,9 +65,14 @@ class CursesUIAdapter:
     
     def get_command(self) -> str | None:
         """Non-blocking input check."""
+        try:
+            key = self._inject_queue.get_nowait()
+            return chr(key)
+        except queue.Empty:
+            pass
         self._stdscr.nodelay(True)
         try:
-            key = self._getch_or_inject()
+            key = self._stdscr.getch()
             if key == -1:
                 return None
             return chr(key)
@@ -116,7 +121,6 @@ class CursesUIAdapter:
             elif key == curses.KEY_DOWN:
                 selected_idx = min(len(items) - 1, selected_idx + 1)
             elif key in (curses.KEY_ENTER, 10, 13):  # Enter key
-                self._debug("pressing enter")
                 if use_enter_key:
                     return str(selected_idx)
                 else:
